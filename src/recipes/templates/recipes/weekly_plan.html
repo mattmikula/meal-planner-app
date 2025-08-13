@@ -1,0 +1,25 @@
+{% extends "recipes/base.html" %}
+{% block content %}
+  <h1>Weekly Meal Plan</h1>
+  <form method="get">
+    <label>Week starting (YYYY-MM-DD):
+      <input type="date" name="start" value="{{ start|date:'Y-m-d' }}" />
+    </label>
+    <button type="submit">Generate</button>
+  </form>
+  {% if not has_meals %}
+    <p>No saved meals yet. <a href="{% url 'recipes:meal-add' %}">Add a meal</a> to generate a plan.</p>
+  {% else %}
+  <table>
+    <tr><th>Day</th><th>Meal</th><th>Linked Recipe</th></tr>
+    {% for day, meal in plan %}
+      <tr>
+        <td>{{ day }}</td>
+        <td>{% if meal %}{{ meal.name }}{% else %}-{% endif %}</td>
+        <td>{% if meal and meal.recipe %}{{ meal.recipe.name }}{% else %}-{% endif %}</td>
+      </tr>
+    {% endfor %}
+  </table>
+  {% endif %}
+{% endblock %}
+

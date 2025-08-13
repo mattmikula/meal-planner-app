@@ -1,0 +1,82 @@
+[
+  {
+    "model": "recipes.recipe",
+    "pk": 1,
+    "fields": {
+      "name": "Spaghetti Aglio e Olio",
+      "description": "Classic garlic and olive oil pasta.",
+      "ingredients": "Spaghetti\nGarlic\nOlive oil\nChili flakes\nParsley\nSalt",
+      "instructions": "Cook pasta. Sauté garlic in oil, add chili. Toss with pasta and parsley.",
+      "prep_time_minutes": 20,
+      "created_at": "2024-01-01T00:00:00Z",
+      "updated_at": "2024-01-01T00:00:00Z"
+    }
+  },
+  {
+    "model": "recipes.recipe",
+    "pk": 2,
+    "fields": {
+      "name": "Chicken Stir Fry",
+      "description": "Quick weeknight stir fry.",
+      "ingredients": "Chicken breast\nMixed veggies\nSoy sauce\nGarlic\nGinger\nRice",
+      "instructions": "Stir fry chicken, add aromatics and veggies, finish with soy. Serve over rice.",
+      "prep_time_minutes": 30,
+      "created_at": "2024-01-02T00:00:00Z",
+      "updated_at": "2024-01-02T00:00:00Z"
+    }
+  },
+  {
+    "model": "recipes.recipe",
+    "pk": 3,
+    "fields": {
+      "name": "Veggie Omelette",
+      "description": "Eggs with mixed vegetables.",
+      "ingredients": "Eggs\nBell pepper\nOnion\nSpinach\nCheese\nSalt\nPepper",
+      "instructions": "Whisk eggs, sauté veg, add eggs and cheese, cook until set.",
+      "prep_time_minutes": 15,
+      "created_at": "2024-01-03T00:00:00Z",
+      "updated_at": "2024-01-03T00:00:00Z"
+    }
+  },
+  {
+    "model": "recipes.meal",
+    "pk": 1,
+    "fields": {
+      "name": "Pasta Night",
+      "recipe": 1,
+      "notes": "Add extra parsley.",
+      "created_at": "2024-02-01T00:00:00Z"
+    }
+  },
+  {
+    "model": "recipes.meal",
+    "pk": 2,
+    "fields": {
+      "name": "Stir Fry Bowl",
+      "recipe": 2,
+      "notes": "Use brown rice.",
+      "created_at": "2024-02-02T00:00:00Z"
+    }
+  },
+  {
+    "model": "recipes.meal",
+    "pk": 3,
+    "fields": {
+      "name": "Omelette Breakfast",
+      "recipe": 3,
+      "notes": "Great for Sundays.",
+      "created_at": "2024-02-03T00:00:00Z"
+    }
+  },
+  {
+    "model": "recipes.meal",
+    "pk": 4,
+    "fields": {
+      "name": "Taco Tuesday",
+      "recipe": null,
+      "notes": "Buy tortillas and salsa.",
+      "created_at": "2024-02-04T00:00:00Z"
+    }
+  }
+]
+

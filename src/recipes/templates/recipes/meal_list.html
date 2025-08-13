@@ -1,0 +1,21 @@
+{% extends "recipes/base.html" %}
+{% block content %}
+<h1>Meals</h1>
+<p><a href="{% url 'recipes:meal-add' %}">Add Meal</a></p>
+<table>
+  <tr><th>Name</th><th>Recipe</th><th class="actions">Actions</th></tr>
+  {% for meal in object_list %}
+  <tr>
+    <td>{{ meal.name }}</td>
+    <td>{% if meal.recipe %}{{ meal.recipe.name }}{% else %}-{% endif %}</td>
+    <td class="actions">
+      <a href="{% url 'recipes:meal-edit' meal.pk %}">Edit</a>
+      <a href="{% url 'recipes:meal-delete' meal.pk %}">Delete</a>
+    </td>
+  </tr>
+  {% empty %}
+  <tr><td colspan="3">No meals yet.</td></tr>
+  {% endfor %}
+  </table>
+{% endblock %}
+

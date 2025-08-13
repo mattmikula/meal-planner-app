@@ -1,0 +1,21 @@
+{% extends "recipes/base.html" %}
+{% block content %}
+<h1>Recipes</h1>
+<p><a href="{% url 'recipes:recipe-add' %}">Add Recipe</a></p>
+<table>
+  <tr><th>Name</th><th>Prep (min)</th><th class="actions">Actions</th></tr>
+  {% for recipe in object_list %}
+  <tr>
+    <td>{{ recipe.name }}</td>
+    <td>{{ recipe.prep_time_minutes|default:"-" }}</td>
+    <td class="actions">
+      <a href="{% url 'recipes:recipe-edit' recipe.pk %}">Edit</a>
+      <a href="{% url 'recipes:recipe-delete' recipe.pk %}">Delete</a>
+    </td>
+  </tr>
+  {% empty %}
+  <tr><td colspan="3">No recipes yet.</td></tr>
+  {% endfor %}
+  </table>
+{% endblock %}
+
