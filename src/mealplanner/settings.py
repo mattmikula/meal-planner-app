@@ -8,7 +8,7 @@ BASE_DIR = Path(__file__).resolve().parents[2]
 
 SECRET_KEY = "dev-secret-key-change-me"
 DEBUG = True
-ALLOWED_HOSTS: list[str] = ["localhost", "127.0.0.1", "[::1]"]
+ALLOWED_HOSTS: list[str] = ["localhost", "127.0.0.1", "[::1]", "testserver"]
 
 INSTALLED_APPS = [
     "django.contrib.admin",
@@ -54,6 +54,8 @@ DATABASES = {
     "default": {
         "ENGINE": "django.db.backends.sqlite3",
         "NAME": str(BASE_DIR / "db.sqlite3"),
+        # Use in-memory DB for tests to avoid filesystem writes
+        "TEST": {"NAME": ":memory:"},
     }
 }
 
@@ -73,4 +75,3 @@ STATIC_URL = "static/"
 STATIC_ROOT = str(BASE_DIR / "staticfiles")
 
 DEFAULT_AUTO_FIELD = "django.db.models.BigAutoField"
-

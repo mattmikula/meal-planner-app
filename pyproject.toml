@@ -17,6 +17,7 @@ dependencies = [
 dev = [
   "ruff>=0.5.0",
   "pytest>=8",
+  "pytest-django>=4.8",
   "pytest-cov>=5",
   "mypy>=1.10",
   "uv>=0.4",
@@ -65,4 +66,5 @@ mypy_path = "src"
 [tool.pytest.ini_options]
 minversion = "8.0"
 addopts = "-q"
-testpaths = ["tests"]
+testpaths = ["src"]
+DJANGO_SETTINGS_MODULE = "mealplanner.settings"
