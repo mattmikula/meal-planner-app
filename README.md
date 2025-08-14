@@ -24,3 +24,7 @@ Add tests for a new app
 - Create `src/<your_app>/tests/__init__.py`.
 - Add test files like `src/<your_app>/tests/test_<feature>.py`.
 - Use `pytest.mark.django_db` or the `client` fixture as needed.
+
+Type checking
+- We use Astral's `ty` for fast type checking (reads existing mypy config).
+- Run locally: `uv run ty check src` (or `ty check src` in your venv).

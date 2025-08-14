@@ -1,9 +1,12 @@
 from __future__ import annotations
 
 from django.db import models
+from typing import ClassVar
 
 
 class Recipe(models.Model):
+    # Hint to type checkers: Django injects this at runtime.
+    objects: ClassVar[models.Manager]
     name = models.CharField(max_length=200, unique=True)
     description = models.TextField(blank=True)
     ingredients = models.TextField(help_text="One item per line")
@@ -20,6 +23,8 @@ class Recipe(models.Model):
 
 
 class Meal(models.Model):
+    # Hint to type checkers: Django injects this at runtime.
+    objects: ClassVar[models.Manager]
     name = models.CharField(max_length=200)
     recipe = models.ForeignKey(Recipe, null=True, blank=True, on_delete=models.SET_NULL)
     notes = models.TextField(blank=True)
@@ -30,4 +35,3 @@ class Meal(models.Model):
 
     def __str__(self) -> str:  # pragma: no cover
         return self.name
-

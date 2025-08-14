@@ -34,7 +34,7 @@ test:
 	$(RUN) pytest --cov=src --cov-report=term-missing -q
 
 typecheck:
-	$(RUN) mypy src
+	$(RUN) ty check src
 
 check: lint typecheck test
 
