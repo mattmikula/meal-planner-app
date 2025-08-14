@@ -2,7 +2,6 @@ from __future__ import annotations
 
 from pathlib import Path
 
-
 # Base directory of the repository (containing manage.py)
 BASE_DIR = Path(__file__).resolve().parents[2]
 

@@ -1,7 +1,8 @@
 from __future__ import annotations
 
-from django.db import models
 from typing import ClassVar
+
+from django.db import models
 
 
 class Recipe(models.Model):
@@ -16,7 +17,7 @@ class Recipe(models.Model):
     updated_at = models.DateTimeField(auto_now=True)
 
     class Meta:
-        ordering = ["name"]
+        ordering = ("name",)
 
     def __str__(self) -> str:  # pragma: no cover - human-readable
         return self.name
@@ -31,7 +32,7 @@ class Meal(models.Model):
     created_at = models.DateTimeField(auto_now_add=True)
 
     class Meta:
-        ordering = ["name"]
+        ordering = ("name",)
 
     def __str__(self) -> str:  # pragma: no cover
         return self.name

@@ -19,7 +19,7 @@ def test_start_of_week_returns_monday():
 
 
 @pytest.mark.parametrize(
-    "param,today,expected",
+    ("param", "today", "expected"),
     [
         (None, dt.date(2024, 7, 10), dt.date(2024, 7, 8)),  # missing param -> week start
         ("2024-01-03", dt.date(2024, 7, 10), dt.date(2024, 1, 3)),  # iso date
@@ -58,4 +58,3 @@ def test_generate_weekly_plan_with_single_meal_is_deterministic():
     assert len(plan) == 7
     # Instances fetched via queryset are distinct objects; compare by pk/equality
     assert all((m is not None and m.pk == meal.pk) for _, m in plan)
-

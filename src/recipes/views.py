@@ -20,14 +20,14 @@ class RecipeListView(ListView):
 
 class RecipeCreateView(CreateView):
     model = Recipe
-    fields = ["name", "description", "ingredients", "instructions", "prep_time_minutes"]
+    fields = ("name", "description", "ingredients", "instructions", "prep_time_minutes")
     template_name = "recipes/recipe_form.html"
     success_url = reverse_lazy("recipes:recipe-list")
 
 
 class RecipeUpdateView(UpdateView):
     model = Recipe
-    fields = ["name", "description", "ingredients", "instructions", "prep_time_minutes"]
+    fields = ("name", "description", "ingredients", "instructions", "prep_time_minutes")
     template_name = "recipes/recipe_form.html"
     success_url = reverse_lazy("recipes:recipe-list")
 
@@ -49,14 +49,14 @@ class MealListView(ListView):
 
 class MealCreateView(CreateView):
     model = Meal
-    fields = ["name", "recipe", "notes"]
+    fields = ("name", "recipe", "notes")
     template_name = "recipes/meal_form.html"
     success_url = reverse_lazy("recipes:meal-list")
 
 
 class MealUpdateView(UpdateView):
     model = Meal
-    fields = ["name", "recipe", "notes"]
+    fields = ("name", "recipe", "notes")
     template_name = "recipes/meal_form.html"
     success_url = reverse_lazy("recipes:meal-list")
 

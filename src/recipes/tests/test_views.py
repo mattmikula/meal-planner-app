@@ -7,7 +7,6 @@ from django.urls import reverse
 
 from recipes.models import Meal, Recipe
 
-
 pytestmark = pytest.mark.django_db
 
 

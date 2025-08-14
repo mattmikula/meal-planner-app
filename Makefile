@@ -57,3 +57,11 @@ dev: setup migrate run
 
 clean:
 	rm -rf .pytest_cache .mypy_cache .ruff_cache **/__pycache__
+
+.PHONY: pre-commit-install pre-commit-run
+pre-commit-install:
+	$(RUN) pre-commit install
+	$(RUN) pre-commit autoupdate
+
+pre-commit-run:
+	$(RUN) pre-commit run --all-files

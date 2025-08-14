@@ -28,3 +28,8 @@ Add tests for a new app
 Type checking
 - We use Astral's `ty` for fast type checking (reads existing mypy config).
 - Run locally: `uv run ty check src` (or `ty check src` in your venv).
+
+Pre-commit hooks
+- Install hooks: `make setup && make pre-commit-install`.
+- Run on all files: `make pre-commit-run`.
+- Hooks include: basic file checks, Ruff lint/format (auto-fix), and `ty check src`.

@@ -3,7 +3,7 @@ from __future__ import annotations
 import calendar
 import datetime as dt
 import random
-from typing import Iterable, List, Tuple
+from collections.abc import Iterable
 
 from .models import Meal
 
@@ -22,10 +22,10 @@ def parse_week_start(param: str | None, today: dt.date) -> dt.date:
         return start_of_week(today)
 
 
-def generate_weekly_plan(meals: Iterable[Meal], start: dt.date) -> List[Tuple[str, Meal | None]]:
+def generate_weekly_plan(meals: Iterable[Meal], start: dt.date) -> list[tuple[str, Meal | None]]:
     items = list(meals)
     choices = items or [None]
-    plan: List[Tuple[str, Meal | None]] = []
+    plan: list[tuple[str, Meal | None]] = []
     for i in range(7):
         day = start + dt.timedelta(days=i)
         label = f"{calendar.day_name[day.weekday()]} ({day.isoformat()})"
