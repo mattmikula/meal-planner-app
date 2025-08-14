@@ -47,7 +47,7 @@ jobs:
           pip install -e .[dev]
 
       - name: Ty type check
-        run: ty check src
+        run: python -m ty check src
 
   pytest:
     runs-on: ubuntu-latest

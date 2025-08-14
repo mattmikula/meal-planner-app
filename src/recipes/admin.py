@@ -15,4 +15,3 @@ class RecipeAdmin(admin.ModelAdmin):
 class MealAdmin(admin.ModelAdmin):
     list_display = ("name", "recipe", "created_at")
     search_fields = ("name",)
-

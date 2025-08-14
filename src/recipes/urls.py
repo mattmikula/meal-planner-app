@@ -20,4 +20,3 @@ urlpatterns = [
     # Weekly plan
     path("plan/weekly/", views.weekly_plan, name="weekly-plan"),
 ]
-

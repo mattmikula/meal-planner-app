@@ -50,4 +50,3 @@ def test_recipe_list_view(client):
     url = reverse("recipes:recipe-list")
     resp = client.get(url)
     assert resp.status_code == 200
-
