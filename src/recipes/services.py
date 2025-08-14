@@ -4,6 +4,7 @@ import calendar
 import datetime as dt
 import random
 from collections.abc import Iterable
+from typing import cast
 
 from .models import Meal
 
@@ -23,8 +24,9 @@ def parse_week_start(param: str | None, today: dt.date) -> dt.date:
 
 
 def generate_weekly_plan(meals: Iterable[Meal], start: dt.date) -> list[tuple[str, Meal | None]]:
-    items = list(meals)
-    choices = items or [None]
+    items: list[Meal] = list(meals)
+    # Ensure choices is typed as list[Meal | None] (list invariance for mypy)
+    choices: list[Meal | None] = cast(list[Meal | None], items) if items else [None]
     plan: list[tuple[str, Meal | None]] = []
     for i in range(7):
         day = start + dt.timedelta(days=i)

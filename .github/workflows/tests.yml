@@ -46,8 +46,8 @@ jobs:
           python -m pip install --upgrade pip
           pip install -e .[dev]
 
-      - name: Ty type check
-        run: python -m ty check src
+      - name: Mypy type check
+        run: mypy src
 
   pytest:
     runs-on: ubuntu-latest

@@ -14,11 +14,9 @@ repos:
         args: ["--fix"]
       - id: ruff-format
 
-  # Use a local hook for ty (Astral) type checking.
-  - repo: local
+  - repo: https://github.com/pre-commit/mirrors-mypy
+    rev: v1.10.0
     hooks:
-      - id: ty
-        name: ty type check
-        entry: ty check src
-        language: system
-        pass_filenames: false
+      - id: mypy
+        name: mypy type check
+        args: ["src"]
