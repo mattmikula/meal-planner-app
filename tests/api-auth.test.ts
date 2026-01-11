@@ -1,6 +1,6 @@
 import { describe, expect, it } from "vitest";
 
-import { getBearerToken } from "@/lib/api/auth";
+import { getBearerToken } from "@/lib/auth/api";
 
 const createRequest = (authorization?: string) =>
   new Request("http://localhost/api/me", {

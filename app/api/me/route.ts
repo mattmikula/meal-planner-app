@@ -1,6 +1,6 @@
 import { NextResponse } from "next/server";
 
-import { getBearerToken, unauthorizedResponse } from "@/lib/api/auth";
+import { getBearerToken, unauthorizedResponse } from "@/lib/auth/api";
 import { createServerSupabaseClient } from "@/lib/supabase/server";
 
 export async function GET(request: Request) {

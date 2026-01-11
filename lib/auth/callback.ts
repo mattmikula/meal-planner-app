@@ -1,10 +1,10 @@
-import type { createBrowserSupabaseClient } from "@/lib/supabase/browser";
+import type { AuthError, Session } from "@supabase/supabase-js";
 
 type AuthCallbackDeps = {
   supabase: {
     auth: {
-      exchangeCodeForSession: (code: string) => Promise<{ error: unknown | null }>;
-      getSession: () => Promise<{ data: { session: unknown | null } }>;
+      exchangeCodeForSession: (code: string) => Promise<{ error: AuthError | null }>;
+      getSession: () => Promise<{ data: { session: Session | null } }>;
     };
   };
   currentUrl: string;
@@ -20,7 +20,7 @@ export async function completeAuthCallback({
 }: AuthCallbackDeps) {
   const url = new URL(currentUrl);
   const code = url.searchParams.get("code");
-  let session: unknown | null = null;
+  let session: Session | null = null;
 
   if (code) {
     const { error } = await supabase.auth.exchangeCodeForSession(code);
