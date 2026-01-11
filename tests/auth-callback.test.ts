@@ -29,6 +29,7 @@ describe("completeAuthCallback", () => {
     supabase.auth.exchangeCodeForSession.mockResolvedValue({
       error: { message: "invalid_grant" }
     });
+    supabase.auth.getSession.mockResolvedValue({ data: { session: null } });
 
     const setStatus = vi.fn();
     const replace = vi.fn();
@@ -43,8 +44,31 @@ describe("completeAuthCallback", () => {
     expect(setStatus).toHaveBeenCalledWith(
       "Sign-in failed. Try again from the homepage."
     );
-    expect(supabase.auth.getSession).not.toHaveBeenCalled();
+    expect(supabase.auth.getSession).toHaveBeenCalled();
     expect(replace).not.toHaveBeenCalled();
+  });
+
+  it("continues when exchange fails but session exists", async () => {
+    const supabase = createSupabaseMock();
+    supabase.auth.exchangeCodeForSession.mockResolvedValue({
+      error: { message: "invalid_grant" }
+    });
+    supabase.auth.getSession.mockResolvedValue({
+      data: { session: { access_token: "token" } }
+    });
+
+    const setStatus = vi.fn();
+    const replace = vi.fn();
+
+    await completeAuthCallback({
+      supabase,
+      currentUrl: "http://localhost/auth/callback?code=already-used",
+      setStatus,
+      replace
+    });
+
+    expect(setStatus).toHaveBeenCalledWith("Signed in. Redirecting...");
+    expect(replace).toHaveBeenCalledWith("/");
   });
 
   it("warns when no session exists after callback", async () => {

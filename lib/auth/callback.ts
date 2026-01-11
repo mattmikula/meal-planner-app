@@ -20,17 +20,26 @@ export async function completeAuthCallback({
 }: AuthCallbackDeps) {
   const url = new URL(currentUrl);
   const code = url.searchParams.get("code");
+  let session: unknown | null = null;
 
   if (code) {
     const { error } = await supabase.auth.exchangeCodeForSession(code);
     if (error) {
-      setStatus("Sign-in failed. Try again from the homepage.");
-      return;
+      const { data } = await supabase.auth.getSession();
+      if (!data.session) {
+        setStatus("Sign-in failed. Try again from the homepage.");
+        return;
+      }
+      session = data.session;
     }
   }
 
-  const { data } = await supabase.auth.getSession();
-  if (!data.session) {
+  if (!session) {
+    const { data } = await supabase.auth.getSession();
+    session = data.session;
+  }
+
+  if (!session) {
     setStatus("No session found. Try signing in again.");
     return;
   }
