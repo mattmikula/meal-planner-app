@@ -1,23 +1,19 @@
 import { NextResponse } from "next/server";
 
+import { getBearerToken, unauthorizedResponse } from "@/lib/api/auth";
 import { createServerSupabaseClient } from "@/lib/supabase/server";
 
 export async function GET(request: Request) {
-  const authHeader = request.headers.get("authorization");
-  if (!authHeader || !/^bearer\s+/i.test(authHeader)) {
-    return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
-  }
-
-  const token = authHeader.replace(/^bearer\s+/i, "").trim();
+  const token = getBearerToken(request);
   if (!token) {
-    return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
+    return unauthorizedResponse();
   }
 
   const supabase = createServerSupabaseClient();
   const { data, error } = await supabase.auth.getUser(token);
 
   if (error || !data.user) {
-    return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
+    return unauthorizedResponse();
   }
 
   return NextResponse.json({
