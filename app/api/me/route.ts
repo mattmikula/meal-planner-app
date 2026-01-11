@@ -4,11 +4,11 @@ import { createServerSupabaseClient } from "@/lib/supabase/server";
 
 export async function GET(request: Request) {
   const authHeader = request.headers.get("authorization");
-  if (!authHeader?.startsWith("Bearer ")) {
+  if (!authHeader || !/^bearer\s+/i.test(authHeader)) {
     return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
   }
 
-  const token = authHeader.slice("Bearer ".length).trim();
+  const token = authHeader.replace(/^bearer\s+/i, "").trim();
   if (!token) {
     return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
   }
