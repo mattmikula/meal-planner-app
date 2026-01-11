@@ -5,6 +5,40 @@ import { useRouter } from "next/navigation";
 
 import { createBrowserSupabaseClient } from "@/lib/supabase/browser";
 
+type AuthCallbackDeps = {
+  supabase: ReturnType<typeof createBrowserSupabaseClient>;
+  currentUrl: string;
+  setStatus: (message: string) => void;
+  replace: (path: string) => void;
+};
+
+export async function completeAuthCallback({
+  supabase,
+  currentUrl,
+  setStatus,
+  replace
+}: AuthCallbackDeps) {
+  const url = new URL(currentUrl);
+  const code = url.searchParams.get("code");
+
+  if (code) {
+    const { error } = await supabase.auth.exchangeCodeForSession(code);
+    if (error) {
+      setStatus("Sign-in failed. Try again from the homepage.");
+      return;
+    }
+  }
+
+  const { data } = await supabase.auth.getSession();
+  if (!data.session) {
+    setStatus("No session found. Try signing in again.");
+    return;
+  }
+
+  setStatus("Signed in. Redirecting...");
+  replace("/");
+}
+
 export default function AuthCallbackPage() {
   const router = useRouter();
   const [status, setStatus] = useState("Completing sign-in...");
@@ -12,30 +46,12 @@ export default function AuthCallbackPage() {
   useEffect(() => {
     const supabase = createBrowserSupabaseClient();
 
-    const finalize = async () => {
-      const currentUrl = window.location.href;
-      const url = new URL(currentUrl);
-      const code = url.searchParams.get("code");
-
-      if (code) {
-        const { error } = await supabase.auth.exchangeCodeForSession(code);
-        if (error) {
-          setStatus("Sign-in failed. Try again from the homepage.");
-          return;
-        }
-      }
-
-      const { data } = await supabase.auth.getSession();
-      if (!data.session) {
-        setStatus("No session found. Try signing in again.");
-        return;
-      }
-
-      setStatus("Signed in. Redirecting...");
-      router.replace("/");
-    };
-
-    finalize();
+    completeAuthCallback({
+      supabase,
+      currentUrl: window.location.href,
+      setStatus,
+      replace: router.replace
+    });
   }, [router]);
 
   return (
