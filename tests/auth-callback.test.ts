@@ -1,6 +1,6 @@
 import { describe, expect, it, vi } from "vitest";
 
-import { completeAuthCallback } from "@/app/auth/callback/page";
+import { completeAuthCallback } from "@/lib/auth/callback";
 
 const createSupabaseMock = () => ({
   auth: {

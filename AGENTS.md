@@ -37,6 +37,8 @@
 
 ## Commit & Pull Request Guidelines
 - Commit messages are short, imperative, and sentence-case (e.g., "Add scaffold setup").
+- Confirm CI steps pass locally before commit/push (`pnpm typecheck`, `pnpm lint`, `pnpm test`, `pnpm build`).
+- Do not commit or push changes unless explicitly requested.
 - PRs should describe the change, include any relevant issue links, and list validation steps.
 - Include screenshots or GIFs for UI changes, plus any new environment steps.
 
