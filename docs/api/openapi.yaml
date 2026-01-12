@@ -1,0 +1,153 @@
+openapi: 3.1.0
+info:
+  title: Meal Planner API
+  version: "0.1.0"
+  description: |-
+    API surface for the Meal Planner app. This spec documents current endpoints
+    and leaves placeholders for planned routes.
+servers:
+  - url: http://localhost:3000
+    description: Local development
+
+tags:
+  - name: Health
+    description: Service health checks
+  - name: Auth
+    description: Authentication-related endpoints
+
+paths:
+  /api/health:
+    get:
+      summary: Health check
+      description: Confirms the API can reach the database.
+      tags:
+        - Health
+      responses:
+        "200":
+          description: Database reachable.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/HealthOk"
+              examples:
+                ok:
+                  summary: Healthy response
+                  value:
+                    ok: true
+        "500":
+          description: Database error.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/HealthError"
+              examples:
+                dbError:
+                  summary: Database error
+                  value:
+                    ok: false
+                    error: Database error
+
+  /api/me:
+    get:
+      summary: Get current user
+      description: |-
+        Returns the authenticated user. Accepts a Bearer token in the
+        Authorization header, or refresh cookies set by the web auth flow.
+      tags:
+        - Auth
+      security:
+        - bearerAuth: []
+      responses:
+        "200":
+          description: Authenticated user.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/User"
+              examples:
+                user:
+                  summary: Authenticated user
+                  value:
+                    id: 3e0f3d65-2d7a-4f60-9d5c-6df2b6fbe5e8
+                    email: ada@example.com
+        "401":
+          description: Missing or invalid credentials.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Error"
+              examples:
+                unauthorized:
+                  summary: Unauthorized
+                  value:
+                    error: Unauthorized
+
+  /api/meals:
+    summary: Meals endpoints (placeholder)
+    description: Placeholder for CRUD endpoints on meals.
+    x-placeholder: true
+
+  /api/meals/{id}:
+    summary: Meal endpoints by id (placeholder)
+    description: Placeholder for single-meal operations.
+    x-placeholder: true
+
+  /api/plans:
+    summary: Plans endpoints (placeholder)
+    description: Placeholder for plan fetch endpoints.
+    x-placeholder: true
+
+  /api/plans/generate:
+    summary: Plan generation endpoints (placeholder)
+    description: Placeholder for plan generation endpoints.
+    x-placeholder: true
+
+components:
+  securitySchemes:
+    bearerAuth:
+      type: http
+      scheme: bearer
+      bearerFormat: JWT
+
+  schemas:
+    HealthOk:
+      type: object
+      required:
+        - ok
+      properties:
+        ok:
+          type: boolean
+          const: true
+
+    HealthError:
+      type: object
+      required:
+        - ok
+        - error
+      properties:
+        ok:
+          type: boolean
+          const: false
+        error:
+          type: string
+
+    User:
+      type: object
+      required:
+        - id
+        - email
+      properties:
+        id:
+          type: string
+          format: uuid
+        email:
+          type: string
+          format: email
+
+    Error:
+      type: object
+      required:
+        - error
+      properties:
+        error:
+          type: string
