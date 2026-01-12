@@ -82,6 +82,31 @@ describe("GET /api/me", () => {
     });
   });
 
+  it("refreshes when the access token is missing but refresh token exists", async () => {
+    refreshSessionMock.mockResolvedValue({
+      data: {
+        session: { access_token: "new-token", refresh_token: "new-refresh", expires_in: 3600 },
+        user: { id: "user-123", email: "test@example.com" }
+      },
+      error: null
+    });
+
+    const { GET } = await import("@/app/api/me/route");
+    const response = await GET(
+      createRequest({
+        cookie: `${REFRESH_TOKEN_COOKIE}=refresh-token`
+      })
+    );
+
+    expect(response.status).toBe(200);
+    expect(await response.json()).toEqual({
+      id: "user-123",
+      email: "test@example.com"
+    });
+    expect(refreshSessionMock).toHaveBeenCalledWith({ refresh_token: "refresh-token" });
+    expect(getUserMock).not.toHaveBeenCalled();
+  });
+
   it("refreshes when the access token is rejected and refresh token exists", async () => {
     getUserMock.mockResolvedValue({
       data: { user: null },
