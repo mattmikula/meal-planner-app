@@ -29,12 +29,23 @@ paths:
             application/json:
               schema:
                 $ref: "#/components/schemas/HealthOk"
+              examples:
+                ok:
+                  summary: Healthy response
+                  value:
+                    ok: true
         "500":
           description: Database error.
           content:
             application/json:
               schema:
                 $ref: "#/components/schemas/HealthError"
+              examples:
+                dbError:
+                  summary: Database error
+                  value:
+                    ok: false
+                    error: Database error
 
   /api/me:
     get:
@@ -53,12 +64,23 @@ paths:
             application/json:
               schema:
                 $ref: "#/components/schemas/User"
+              examples:
+                user:
+                  summary: Authenticated user
+                  value:
+                    id: 3e0f3d65-2d7a-4f60-9d5c-6df2b6fbe5e8
+                    email: ada@example.com
         "401":
           description: Missing or invalid credentials.
           content:
             application/json:
               schema:
                 $ref: "#/components/schemas/Error"
+              examples:
+                unauthorized:
+                  summary: Unauthorized
+                  value:
+                    error: Unauthorized
 
   /api/meals:
     summary: Meals endpoints (placeholder)
