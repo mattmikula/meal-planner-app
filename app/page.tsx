@@ -10,6 +10,7 @@ export default function HomePage() {
   const [otpSent, setOtpSent] = useState(false);
   const [status, setStatus] = useState<string | null>(null);
   const [userEmail, setUserEmail] = useState<string | null>(null);
+  const [checkingSession, setCheckingSession] = useState(true);
   const [loading, setLoading] = useState(false);
   const [verifying, setVerifying] = useState(false);
 
@@ -36,6 +37,10 @@ export default function HomePage() {
       } catch {
         if (isMounted) {
           setStatus("Unable to load your session. Try again.");
+        }
+      } finally {
+        if (isMounted) {
+          setCheckingSession(false);
         }
       }
     };
@@ -109,10 +114,19 @@ export default function HomePage() {
     setStatus("Unable to sign out. Try again.");
   };
 
+  if (checkingSession) {
+    return (
+      <main style={{ fontFamily: "system-ui", padding: "2rem", maxWidth: "520px" }}>
+        <h1>Meal Planner</h1>
+        <p>Loading your session...</p>
+      </main>
+    );
+  }
+
   return (
     <main style={{ fontFamily: "system-ui", padding: "2rem", maxWidth: "520px" }}>
       <h1>Meal Planner</h1>
-      <p>Sign in with a one-time code to continue.</p>
+      {!userEmail ? <p>Sign in with a one-time code to continue.</p> : null}
 
       {userEmail ? (
         <section>
