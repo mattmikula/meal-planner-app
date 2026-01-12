@@ -87,6 +87,79 @@ paths:
     description: Placeholder for CRUD endpoints on meals.
     x-placeholder: true
 
+  /api/verify-otp:
+    post:
+      summary: Verify email OTP
+      description: Verify a one-time passcode and set auth cookies.
+      tags:
+        - Auth
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/VerifyOtpRequest"
+            examples:
+              verify:
+                summary: Verify OTP request
+                value:
+                  email: ada@example.com
+                  token: "123456"
+      responses:
+        "200":
+          description: Verified user.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/User"
+              examples:
+                user:
+                  summary: Authenticated user
+                  value:
+                    id: 3e0f3d65-2d7a-4f60-9d5c-6df2b6fbe5e8
+                    email: ada@example.com
+        "400":
+          description: Invalid request body.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Error"
+              examples:
+                invalid:
+                  summary: Missing fields
+                  value:
+                    error: Email and code are required.
+        "401":
+          description: Invalid or expired code.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Error"
+              examples:
+                invalidCode:
+                  summary: Invalid code
+                  value:
+                    error: Invalid or expired code.
+
+  /api/logout:
+    post:
+      summary: Log out
+      description: Clear authentication cookies.
+      tags:
+        - Auth
+      responses:
+        "200":
+          description: Signed out.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/LogoutOk"
+              examples:
+                ok:
+                  summary: Signed out
+                  value:
+                    ok: true
+
   /api/meals/{id}:
     summary: Meal endpoints by id (placeholder)
     description: Placeholder for single-meal operations.
@@ -143,6 +216,27 @@ components:
         email:
           type: string
           format: email
+
+    VerifyOtpRequest:
+      type: object
+      required:
+        - email
+        - token
+      properties:
+        email:
+          type: string
+          format: email
+        token:
+          type: string
+
+    LogoutOk:
+      type: object
+      required:
+        - ok
+      properties:
+        ok:
+          type: boolean
+          const: true
 
     Error:
       type: object
