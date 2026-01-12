@@ -29,6 +29,7 @@
 - Keep core business rules and validation on the backend so every client shares the same behavior.
 - Treat UI components as consumers of backend capabilities; avoid duplicating logic in the frontend.
 - When adding new features, update backend routes first, then build UI clients around those APIs.
+- Mark server-only modules with `import "server-only"` when they must never ship to the client (secrets, service role keys, Node-only APIs).
 
 ## Testing Guidelines
 - Tests use Vitest and live in `tests/` with `*.test.ts` naming.
