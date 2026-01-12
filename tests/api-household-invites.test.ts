@@ -122,6 +122,15 @@ describe("POST /api/household/invites", () => {
     expect(await response.json()).toEqual({ error: "Email is required." });
   });
 
+  it("returns 400 when email is not a string", async () => {
+    authMocks.requireApiUser.mockResolvedValue({ userId: "user-1", email: "test@example.com" });
+
+    const response = await createInvite(createInviteRequest({ email: 123 }));
+
+    expect(response.status).toBe(400);
+    expect(await response.json()).toEqual({ error: "Email is required." });
+  });
+
   it("does not touch the database when email is missing", async () => {
     authMocks.requireApiUser.mockResolvedValue({ userId: "user-1", email: "test@example.com" });
 
@@ -199,6 +208,18 @@ describe("POST /api/household/invites/accept", () => {
     });
 
     const response = await acceptInvite(acceptInviteRequest({}));
+
+    expect(response.status).toBe(400);
+    expect(await response.json()).toEqual({ error: "Token is required." });
+  });
+
+  it("returns 400 when token is not a string", async () => {
+    authMocks.requireApiUser.mockResolvedValue({
+      userId: "user-1",
+      email: "ada@example.com"
+    });
+
+    const response = await acceptInvite(acceptInviteRequest({ token: 123 }));
 
     expect(response.status).toBe(400);
     expect(await response.json()).toEqual({ error: "Token is required." });
@@ -320,13 +341,13 @@ describe("POST /api/household/invites/accept", () => {
     expect(await response.json()).toEqual({ error: "Invite already used." });
   });
 
-  it("rejects invite for existing members", async () => {
+  it("rejects invite for existing household members", async () => {
     const rpcMock = setupAcceptInviteBase();
     const rpcQuery = createQuery({
       data: {
         household_id: null,
         member_id: null,
-        error_message: "User already belongs to a household.",
+        error_message: "User already belongs to this household.",
         error_status: 409
       },
       error: null
@@ -337,7 +358,7 @@ describe("POST /api/household/invites/accept", () => {
 
     expect(response.status).toBe(409);
     expect(await response.json()).toEqual({
-      error: "User already belongs to a household."
+      error: "User already belongs to this household."
     });
   });
 

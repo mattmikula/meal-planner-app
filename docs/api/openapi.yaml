@@ -89,7 +89,7 @@ paths:
   /api/household:
     get:
       summary: Get household context
-      description: Returns the household and membership for the current user.
+      description: Returns the current household and membership for the user. If no current household is set, the earliest active membership is used.
       tags:
         - Household
       security:
@@ -262,7 +262,7 @@ paths:
               schema:
                 $ref: "#/components/schemas/Error"
         "409":
-          description: Invite already used or member exists.
+          description: Invite already used or member exists in this household.
           content:
             application/json:
               schema:

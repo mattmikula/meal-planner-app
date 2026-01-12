@@ -30,7 +30,7 @@ const statusStyle = {
 
 const normalizeEmail = (value: string) => value.trim().toLowerCase();
 
-  const SESSION_ERROR_MESSAGE = "Unable to confirm your session. Try again.";
+const SESSION_ERROR_MESSAGE = "Unable to confirm your session. Try again.";
 
 export default function InviteMemberClient() {
   const api = useMemo(() => createApiClient(), []);

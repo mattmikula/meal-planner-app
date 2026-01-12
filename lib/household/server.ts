@@ -37,6 +37,10 @@ type HouseholdRow = {
   created_at: string;
 };
 
+type HouseholdSettingsRow = {
+  current_household_id: string | null;
+};
+
 export function hashInviteToken(token: string) {
   return createHash("sha256").update(token).digest("hex");
 }
@@ -70,43 +74,101 @@ export function buildInviteUrl(token: string) {
   }
 }
 
-export async function fetchHouseholdMembership(
-  supabase: SupabaseClient,
-  userId: string
-) {
+const mapMembership = (member: HouseholdMemberRow, userId: string) => ({
+  id: member.id,
+  householdId: member.household_id,
+  userId,
+  role: member.role,
+  status: member.status,
+  createdAt: member.created_at
+});
+
+async function fetchCurrentHouseholdId(supabase: SupabaseClient, userId: string) {
   const { data, error } = await supabase
-    .from("household_members")
-    .select("id, household_id, role, status, created_at")
+    .from("user_household_settings")
+    .select("current_household_id")
     .eq("user_id", userId)
-    .eq("status", "active")
     .maybeSingle();
 
   if (error) {
     throw new Error(error.message);
   }
 
-  if (!data) {
-    return null;
+  const settings = data as HouseholdSettingsRow | null;
+  return settings?.current_household_id ?? null;
+}
+
+async function setCurrentHouseholdId(
+  supabase: SupabaseClient,
+  userId: string,
+  householdId: string
+) {
+  const { error } = await supabase.from("user_household_settings").upsert(
+    {
+      user_id: userId,
+      current_household_id: householdId,
+      updated_at: new Date().toISOString()
+    },
+    { onConflict: "user_id" }
+  );
+
+  if (error) {
+    throw new Error(error.message);
+  }
+}
+
+export async function fetchHouseholdMembership(
+  supabase: SupabaseClient,
+  userId: string,
+  householdId?: string
+) {
+  const baseQuery = supabase
+    .from("household_members")
+    .select("id, household_id, role, status, created_at")
+    .eq("user_id", userId)
+    .eq("status", "active");
+
+  if (householdId) {
+    const { data, error } = await baseQuery
+      .eq("household_id", householdId)
+      .maybeSingle();
+
+    if (error) {
+      throw new Error(error.message);
+    }
+
+    if (!data) {
+      return null;
+    }
+
+    return mapMembership(data as HouseholdMemberRow, userId);
   }
 
-  const member = data as HouseholdMemberRow;
-  return {
-    id: member.id,
-    householdId: member.household_id,
-    userId,
-    role: member.role,
-    status: member.status,
-    createdAt: member.created_at
-  };
+  const { data, error } = await baseQuery.order("created_at", { ascending: true }).limit(1);
+
+  if (error) {
+    throw new Error(error.message);
+  }
+
+  const member = (data as HouseholdMemberRow[] | null)?.[0];
+  return member ? mapMembership(member, userId) : null;
 }
 
 export async function fetchHouseholdContext(
   supabase: SupabaseClient,
   userId: string
 ): Promise<HouseholdContext | null> {
-  const membership = await fetchHouseholdMembership(supabase, userId);
+  const currentHouseholdId = await fetchCurrentHouseholdId(supabase, userId);
+  let membership = currentHouseholdId
+    ? await fetchHouseholdMembership(supabase, userId, currentHouseholdId)
+    : null;
+
   if (!membership) {
-    return null;
+    membership = await fetchHouseholdMembership(supabase, userId);
+    if (!membership) {
+      return null;
+    }
+    await setCurrentHouseholdId(supabase, userId, membership.householdId);
   }
 
   const { data, error } = await supabase
@@ -166,6 +228,8 @@ export async function ensureHouseholdContext(
   }
 
   const membership = member as HouseholdMemberRow;
+
+  await setCurrentHouseholdId(supabase, userId, household.id);
 
   return {
     household: {

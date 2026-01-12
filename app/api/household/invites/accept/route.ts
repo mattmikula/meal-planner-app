@@ -23,7 +23,12 @@ type InviteAcceptResult = {
 const jsonError = (message: string, status: number) =>
   NextResponse.json({ error: message }, { status });
 
-const normalizeToken = (payload: AcceptPayload) => payload.token?.trim() ?? null;
+const normalizeToken = (payload: AcceptPayload) => {
+  if (typeof payload.token !== "string") {
+    return null;
+  }
+  return payload.token.trim() || null;
+};
 
 const normalizeEmail = (email: string | null) => email?.trim().toLowerCase() ?? null;
 

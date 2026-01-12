@@ -15,7 +15,14 @@ create table if not exists household_members (
   status text not null default 'active',
   created_at timestamptz not null default now(),
   updated_at timestamptz not null default now(),
-  unique (user_id)
+  unique (household_id, user_id)
+);
+
+create table if not exists user_household_settings (
+  user_id uuid primary key,
+  current_household_id uuid references households(id) on delete set null,
+  created_at timestamptz not null default now(),
+  updated_at timestamptz not null default now()
 );
 
 create table if not exists household_invites (
@@ -66,6 +73,11 @@ from user_households;
 
 insert into household_members (household_id, user_id, role, status)
 select household_id, user_id, 'owner', 'active'
+from user_households
+on conflict (household_id, user_id) do nothing;
+
+insert into user_household_settings (user_id, current_household_id)
+select user_id, household_id
 from user_households
 on conflict (user_id) do nothing;
 
@@ -140,6 +152,8 @@ as $$
 declare
   invite_record household_invites%rowtype;
   new_member_id uuid;
+  existing_member_id uuid;
+  existing_member_status text;
 begin
   select * into invite_record
   from household_invites
@@ -166,30 +180,43 @@ begin
     return;
   end if;
 
-  if exists (
-    select 1
-    from household_members
-    where user_id = p_user_id
-      and status = 'active'
-  ) then
-    return query select null::uuid, null::uuid, 'User already belongs to a household.', 409;
-    return;
-  end if;
+  select id, status into existing_member_id, existing_member_status
+  from household_members
+  where household_id = invite_record.household_id
+    and user_id = p_user_id
+  limit 1;
 
-  begin
-    insert into household_members (household_id, user_id, role, status)
-    values (invite_record.household_id, p_user_id, 'member', 'active')
-    returning id into new_member_id;
-  exception
-    when unique_violation then
-      return query select null::uuid, null::uuid, 'User already belongs to a household.', 409;
+  if found then
+    if existing_member_status = 'active' then
+      return query select null::uuid, null::uuid, 'User already belongs to this household.', 409;
       return;
-  end;
+    end if;
+
+    update household_members
+    set status = 'active',
+        updated_at = now()
+    where id = existing_member_id
+    returning id into new_member_id;
+  else
+    begin
+      insert into household_members (household_id, user_id, role, status)
+      values (invite_record.household_id, p_user_id, 'member', 'active')
+      returning id into new_member_id;
+    exception
+      when unique_violation then
+        return query select null::uuid, null::uuid, 'User already belongs to this household.', 409;
+        return;
+    end;
+  end if;
 
   update household_invites
   set accepted_at = now(),
       accepted_by = p_user_id
   where id = invite_record.id;
+
+  insert into user_household_settings (user_id, current_household_id)
+  values (p_user_id, invite_record.household_id)
+  on conflict (user_id) do nothing;
 
   return query select invite_record.household_id, new_member_id, null::text, null::int;
 end;

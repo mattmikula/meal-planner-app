@@ -110,7 +110,7 @@ export interface paths {
         };
         /**
          * Get household context
-         * @description Returns the household and membership for the current user.
+         * @description Returns the current household and membership for the user. If no current household is set, the earliest active membership is used.
          */
         get: {
             parameters: {
@@ -347,7 +347,7 @@ export interface paths {
                         "application/json": components["schemas"]["Error"];
                     };
                 };
-                /** @description Invite already used or member exists. */
+                /** @description Invite already used or member exists in this household. */
                 409: {
                     headers: {
                         [name: string]: unknown;

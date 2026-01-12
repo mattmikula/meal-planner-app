@@ -11,6 +11,7 @@ export function createQuery<T>(result: SupabaseResult<T>) {
 
   query.select = vi.fn(chain);
   query.insert = vi.fn(chain);
+  query.upsert = vi.fn(chain);
   query.update = vi.fn(chain);
   query.delete = vi.fn(chain);
   query.eq = vi.fn(chain);

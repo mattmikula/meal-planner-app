@@ -16,8 +16,12 @@ type InvitePayload = {
 const jsonError = (message: string, status: number) =>
   NextResponse.json({ error: message }, { status });
 
-const normalizeEmail = (payload: InvitePayload) =>
-  payload.email?.trim().toLowerCase() ?? null;
+const normalizeEmail = (payload: InvitePayload) => {
+  if (typeof payload.email !== "string") {
+    return null;
+  }
+  return payload.email.trim().toLowerCase() || null;
+};
 
 async function parsePayload(request: Request): Promise<InvitePayload | null> {
   try {
