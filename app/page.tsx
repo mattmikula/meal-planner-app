@@ -1,10 +1,26 @@
 "use client";
 
 import { useEffect, useMemo, useState, type FormEvent } from "react";
+import { createApiClient } from "@/lib/api/client";
 import { createBrowserSupabaseClient } from "@/lib/supabase/browser";
+
+const getApiErrorMessage = (error: unknown) => {
+  if (!error) {
+    return null;
+  }
+  if (typeof error === "string") {
+    return error;
+  }
+  if (typeof error === "object" && "error" in error) {
+    const message = (error as { error?: unknown }).error;
+    return typeof message === "string" ? message : null;
+  }
+  return null;
+};
 
 export default function HomePage() {
   const supabase = useMemo(() => createBrowserSupabaseClient(), []);
+  const api = useMemo(() => createApiClient(), []);
   const [email, setEmail] = useState("");
   const [otpCode, setOtpCode] = useState("");
   const [otpSent, setOtpSent] = useState(false);
@@ -19,17 +35,16 @@ export default function HomePage() {
 
     const loadUser = async () => {
       try {
-        const response = await fetch("/api/me");
+        const { data, response } = await api.GET("/api/me");
         if (!isMounted) {
           return;
         }
-        if (response.ok) {
-          const data = await response.json();
+        if (response?.ok && data) {
           setUserEmail(data.email ?? null);
           setOtpSent(false);
           return;
         }
-        if (response.status === 401) {
+        if (response?.status === 401) {
           setUserEmail(null);
           return;
         }
@@ -50,7 +65,7 @@ export default function HomePage() {
     return () => {
       isMounted = false;
     };
-  }, []);
+  }, [api]);
 
   const handleLogin = async (event: FormEvent<HTMLFormElement>) => {
     event.preventDefault();
@@ -78,21 +93,17 @@ export default function HomePage() {
     setVerifying(true);
 
     try {
-      const response = await fetch("/api/verify-otp", {
-        method: "POST",
-        headers: { "content-type": "application/json" },
-        body: JSON.stringify({ email, token: otpCode })
+      const { data, error, response } = await api.POST("/api/verify-otp", {
+        body: { email, token: otpCode }
       });
 
       setVerifying(false);
 
-      if (!response.ok) {
-        const data = await response.json().catch(() => ({}));
-        setStatus(data?.error ?? "Unable to verify the code. Try again.");
+      if (!response?.ok || !data) {
+        setStatus(getApiErrorMessage(error) ?? "Unable to verify the code. Try again.");
         return;
       }
 
-      const data = await response.json();
       setUserEmail(data.email ?? null);
       setOtpCode("");
       setOtpSent(false);
@@ -105,13 +116,13 @@ export default function HomePage() {
 
   const handleLogout = async () => {
     setStatus(null);
-    const response = await fetch("/api/logout", { method: "POST" });
-    if (response.ok) {
+    const { error, response } = await api.POST("/api/logout");
+    if (response?.ok) {
       setUserEmail(null);
       setOtpSent(false);
       return;
     }
-    setStatus("Unable to sign out. Try again.");
+    setStatus(getApiErrorMessage(error) ?? "Unable to sign out. Try again.");
   };
 
   if (checkingSession) {
