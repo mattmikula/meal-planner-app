@@ -45,3 +45,4 @@
 ## Security & Configuration Tips
 - Use `.env.local` for Supabase credentials; never commit secrets.
 - Apply schema updates via `supabase/migrations/` before testing API routes.
+- Web auth uses email OTP verification with HttpOnly cookies; keep mobile clients on bearer tokens.

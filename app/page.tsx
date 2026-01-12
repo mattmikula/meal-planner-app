@@ -1,37 +1,51 @@
 "use client";
 
 import { useEffect, useMemo, useState, type FormEvent } from "react";
-import type { Session } from "@supabase/supabase-js";
-
 import { createBrowserSupabaseClient } from "@/lib/supabase/browser";
 
 export default function HomePage() {
   const supabase = useMemo(() => createBrowserSupabaseClient(), []);
   const [email, setEmail] = useState("");
+  const [otpCode, setOtpCode] = useState("");
+  const [otpSent, setOtpSent] = useState(false);
   const [status, setStatus] = useState<string | null>(null);
-  const [session, setSession] = useState<Session | null>(null);
+  const [userEmail, setUserEmail] = useState<string | null>(null);
   const [loading, setLoading] = useState(false);
+  const [verifying, setVerifying] = useState(false);
 
   useEffect(() => {
     let isMounted = true;
 
-    supabase.auth.getSession().then(({ data }) => {
-      if (isMounted) {
-        setSession(data.session ?? null);
+    const loadUser = async () => {
+      try {
+        const response = await fetch("/api/me");
+        if (!isMounted) {
+          return;
+        }
+        if (response.ok) {
+          const data = await response.json();
+          setUserEmail(data.email ?? null);
+          setOtpSent(false);
+          return;
+        }
+        if (response.status === 401) {
+          setUserEmail(null);
+          return;
+        }
+        setStatus("Unable to load your session. Try again.");
+      } catch {
+        if (isMounted) {
+          setStatus("Unable to load your session. Try again.");
+        }
       }
-    });
+    };
 
-    const { data: authListener } = supabase.auth.onAuthStateChange(
-      (_event, nextSession) => {
-        setSession(nextSession);
-      }
-    );
+    loadUser();
 
     return () => {
       isMounted = false;
-      authListener.subscription.unsubscribe();
     };
-  }, [supabase]);
+  }, []);
 
   const handleLogin = async (event: FormEvent<HTMLFormElement>) => {
     event.preventDefault();
@@ -39,10 +53,7 @@ export default function HomePage() {
     setLoading(true);
 
     const { error } = await supabase.auth.signInWithOtp({
-      email,
-      options: {
-        emailRedirectTo: `${window.location.origin}/auth/callback`
-      }
+      email
     });
 
     setLoading(false);
@@ -52,22 +63,60 @@ export default function HomePage() {
       return;
     }
 
-    setStatus("Check your email for a magic link.");
+    setOtpSent(true);
+    setStatus("Enter the code we emailed you.");
+  };
+
+  const handleVerify = async (event: FormEvent<HTMLFormElement>) => {
+    event.preventDefault();
+    setStatus(null);
+    setVerifying(true);
+
+    try {
+      const response = await fetch("/api/verify-otp", {
+        method: "POST",
+        headers: { "content-type": "application/json" },
+        body: JSON.stringify({ email, token: otpCode })
+      });
+
+      setVerifying(false);
+
+      if (!response.ok) {
+        const data = await response.json().catch(() => ({}));
+        setStatus(data?.error ?? "Unable to verify the code. Try again.");
+        return;
+      }
+
+      const data = await response.json();
+      setUserEmail(data.email ?? null);
+      setOtpCode("");
+      setOtpSent(false);
+      setStatus(null);
+    } catch {
+      setVerifying(false);
+      setStatus("Unable to verify the code. Try again.");
+    }
   };
 
   const handleLogout = async () => {
     setStatus(null);
-    await supabase.auth.signOut();
+    const response = await fetch("/api/logout", { method: "POST" });
+    if (response.ok) {
+      setUserEmail(null);
+      setOtpSent(false);
+      return;
+    }
+    setStatus("Unable to sign out. Try again.");
   };
 
   return (
     <main style={{ fontFamily: "system-ui", padding: "2rem", maxWidth: "520px" }}>
       <h1>Meal Planner</h1>
-      <p>Sign in with a magic link to continue.</p>
+      <p>Sign in with a one-time code to continue.</p>
 
-      {session ? (
+      {userEmail ? (
         <section>
-          <p>Signed in as {session.user.email}</p>
+          <p>Signed in as {userEmail}</p>
           <button type="button" onClick={handleLogout}>
             Sign out
           </button>
@@ -81,16 +130,43 @@ export default function HomePage() {
             id="email"
             type="email"
             value={email}
-            onChange={(event) => setEmail(event.target.value)}
+            onChange={(event) => {
+              setEmail(event.target.value);
+              if (otpSent) {
+                setOtpSent(false);
+                setOtpCode("");
+              }
+            }}
             required
             placeholder="you@example.com"
             style={{ padding: "0.5rem", width: "100%", marginBottom: "1rem" }}
           />
           <button type="submit" disabled={loading}>
-            {loading ? "Sending..." : "Send magic link"}
+            {loading ? "Sending..." : "Send code"}
           </button>
         </form>
       )}
+
+      {!userEmail && otpSent ? (
+        <form onSubmit={handleVerify} style={{ marginTop: "1rem" }}>
+          <label htmlFor="otp" style={{ display: "block", marginBottom: "0.5rem" }}>
+            Verification code
+          </label>
+          <input
+            id="otp"
+            autoComplete="one-time-code"
+            inputMode="numeric"
+            value={otpCode}
+            onChange={(event) => setOtpCode(event.target.value)}
+            required
+            placeholder="123456"
+            style={{ padding: "0.5rem", width: "100%", marginBottom: "1rem" }}
+          />
+          <button type="submit" disabled={verifying}>
+            {verifying ? "Verifying..." : "Verify code"}
+          </button>
+        </form>
+      ) : null}
 
       {status ? <p style={{ marginTop: "1rem" }}>{status}</p> : null}
     </main>
