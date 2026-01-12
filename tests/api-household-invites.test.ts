@@ -57,14 +57,6 @@ const acceptInviteRequest = (body: unknown) =>
     body: JSON.stringify(body)
   });
 
-const baseInvite = {
-  id: "invite-1",
-  household_id: "household-1",
-  email: "ada@example.com",
-  expires_at: "2099-01-01T00:00:00Z",
-  accepted_at: null
-};
-
 beforeEach(() => {
   vi.clearAllMocks();
 });
@@ -194,8 +186,10 @@ describe("POST /api/household/invites/accept", () => {
       userId: "user-1",
       email: "ada@example.com"
     });
-    householdMocks.fetchHouseholdMembership.mockResolvedValue(null);
     householdMocks.hashInviteToken.mockReturnValue("hash-abc");
+    const rpcMock = vi.fn();
+    supabaseMocks.createServerSupabaseClient.mockReturnValue({ rpc: rpcMock });
+    return rpcMock;
   };
 
   it("returns 400 when token is missing", async () => {
@@ -245,26 +239,17 @@ describe("POST /api/household/invites/accept", () => {
   });
 
   it("accepts a valid invite", async () => {
-    setupAcceptInviteBase();
-
-    const selectQuery = createQuery({
-      data: baseInvite,
+    const rpcMock = setupAcceptInviteBase();
+    const rpcQuery = createQuery({
+      data: {
+        household_id: "household-1",
+        member_id: "member-2",
+        error_message: null,
+        error_status: null
+      },
       error: null
     });
-    const updateQuery = createQuery({
-      data: { id: "invite-1" },
-      error: null
-    });
-    const insertQuery = createQuery({
-      data: { id: "member-2" },
-      error: null
-    });
-    const fromMock = vi
-      .fn()
-      .mockReturnValueOnce(selectQuery)
-      .mockReturnValueOnce(updateQuery)
-      .mockReturnValueOnce(insertQuery);
-    supabaseMocks.createServerSupabaseClient.mockReturnValue({ from: fromMock });
+    rpcMock.mockReturnValue(rpcQuery);
 
     const response = await acceptInvite(acceptInviteRequest({ token: "token-abc" }));
 
@@ -276,42 +261,39 @@ describe("POST /api/household/invites/accept", () => {
   });
 
   it("looks up invites by token hash", async () => {
-    setupAcceptInviteBase();
-
-    const selectQuery = createQuery({
-      data: baseInvite,
+    const rpcMock = setupAcceptInviteBase();
+    const rpcQuery = createQuery({
+      data: {
+        household_id: "household-1",
+        member_id: "member-2",
+        error_message: null,
+        error_status: null
+      },
       error: null
     });
-    const updateQuery = createQuery({
-      data: { id: "invite-1" },
-      error: null
-    });
-    const insertQuery = createQuery({
-      data: { id: "member-2" },
-      error: null
-    });
-    const fromMock = vi
-      .fn()
-      .mockReturnValueOnce(selectQuery)
-      .mockReturnValueOnce(updateQuery)
-      .mockReturnValueOnce(insertQuery);
-    supabaseMocks.createServerSupabaseClient.mockReturnValue({ from: fromMock });
+    rpcMock.mockReturnValue(rpcQuery);
 
     await acceptInvite(acceptInviteRequest({ token: "token-abc" }));
 
-    expect(selectQuery.eq).toHaveBeenCalledWith("token_hash", "hash-abc");
+    expect(rpcMock).toHaveBeenCalledWith("accept_household_invite", {
+      p_token_hash: "hash-abc",
+      p_user_id: "user-1",
+      p_email: "ada@example.com"
+    });
   });
 
   it("rejects invites that cannot be found", async () => {
-    setupAcceptInviteBase();
-
-    const selectQuery = createQuery({
-      data: null,
+    const rpcMock = setupAcceptInviteBase();
+    const rpcQuery = createQuery({
+      data: {
+        household_id: null,
+        member_id: null,
+        error_message: "Invalid or expired invite.",
+        error_status: 400
+      },
       error: null
     });
-    supabaseMocks.createServerSupabaseClient.mockReturnValue({
-      from: vi.fn().mockReturnValue(selectQuery)
-    });
+    rpcMock.mockReturnValue(rpcQuery);
 
     const response = await acceptInvite(acceptInviteRequest({ token: "token-abc" }));
 
@@ -320,18 +302,17 @@ describe("POST /api/household/invites/accept", () => {
   });
 
   it("rejects already used invites", async () => {
-    setupAcceptInviteBase();
-
-    const selectQuery = createQuery({
+    const rpcMock = setupAcceptInviteBase();
+    const rpcQuery = createQuery({
       data: {
-        ...baseInvite,
-        accepted_at: "2024-02-12T10:00:00Z"
+        household_id: null,
+        member_id: null,
+        error_message: "Invite already used.",
+        error_status: 409
       },
       error: null
     });
-    supabaseMocks.createServerSupabaseClient.mockReturnValue({
-      from: vi.fn().mockReturnValue(selectQuery)
-    });
+    rpcMock.mockReturnValue(rpcQuery);
 
     const response = await acceptInvite(acceptInviteRequest({ token: "token-abc" }));
 
@@ -340,27 +321,17 @@ describe("POST /api/household/invites/accept", () => {
   });
 
   it("rejects invite for existing members", async () => {
-    authMocks.requireApiUser.mockResolvedValue({
-      userId: "user-1",
-      email: "ada@example.com"
-    });
-    householdMocks.fetchHouseholdMembership.mockResolvedValue({
-      id: "member-1",
-      householdId: "household-1",
-      userId: "user-1",
-      role: "owner",
-      status: "active",
-      createdAt: "2024-02-12T10:00:00Z"
-    });
-    householdMocks.hashInviteToken.mockReturnValue("hash-abc");
-
-    const selectQuery = createQuery({
-      data: baseInvite,
+    const rpcMock = setupAcceptInviteBase();
+    const rpcQuery = createQuery({
+      data: {
+        household_id: null,
+        member_id: null,
+        error_message: "User already belongs to a household.",
+        error_status: 409
+      },
       error: null
     });
-    supabaseMocks.createServerSupabaseClient.mockReturnValue({
-      from: vi.fn().mockReturnValue(selectQuery)
-    });
+    rpcMock.mockReturnValue(rpcQuery);
 
     const response = await acceptInvite(acceptInviteRequest({ token: "token-abc" }));
 
@@ -371,18 +342,17 @@ describe("POST /api/household/invites/accept", () => {
   });
 
   it("rejects invite email mismatches", async () => {
-    setupAcceptInviteBase();
-
-    const selectQuery = createQuery({
+    const rpcMock = setupAcceptInviteBase();
+    const rpcQuery = createQuery({
       data: {
-        ...baseInvite,
-        email: "other@example.com"
+        household_id: null,
+        member_id: null,
+        error_message: "Invite email does not match.",
+        error_status: 403
       },
       error: null
     });
-    supabaseMocks.createServerSupabaseClient.mockReturnValue({
-      from: vi.fn().mockReturnValue(selectQuery)
-    });
+    rpcMock.mockReturnValue(rpcQuery);
 
     const response = await acceptInvite(acceptInviteRequest({ token: "token-abc" }));
 
@@ -391,18 +361,17 @@ describe("POST /api/household/invites/accept", () => {
   });
 
   it("rejects expired invites", async () => {
-    setupAcceptInviteBase();
-
-    const selectQuery = createQuery({
+    const rpcMock = setupAcceptInviteBase();
+    const rpcQuery = createQuery({
       data: {
-        ...baseInvite,
-        expires_at: "2000-01-01T00:00:00Z"
+        household_id: null,
+        member_id: null,
+        error_message: "Invite expired.",
+        error_status: 400
       },
       error: null
     });
-    supabaseMocks.createServerSupabaseClient.mockReturnValue({
-      from: vi.fn().mockReturnValue(selectQuery)
-    });
+    rpcMock.mockReturnValue(rpcQuery);
 
     const response = await acceptInvite(acceptInviteRequest({ token: "token-abc" }));
 
@@ -411,76 +380,16 @@ describe("POST /api/household/invites/accept", () => {
   });
 
   it("returns 500 when accepting invite fails", async () => {
-    setupAcceptInviteBase();
-
-    const selectQuery = createQuery({
-      data: baseInvite,
-      error: null
-    });
-    const updateQuery = createQuery({
+    const rpcMock = setupAcceptInviteBase();
+    const rpcQuery = createQuery({
       data: null,
-      error: { message: "update failed" }
+      error: { message: "rpc failed" }
     });
-    const fromMock = vi
-      .fn()
-      .mockReturnValueOnce(selectQuery)
-      .mockReturnValueOnce(updateQuery);
-    supabaseMocks.createServerSupabaseClient.mockReturnValue({ from: fromMock });
+    rpcMock.mockReturnValue(rpcQuery);
 
     const response = await acceptInvite(acceptInviteRequest({ token: "token-abc" }));
 
     expect(response.status).toBe(500);
-    expect(await response.json()).toEqual({ error: "update failed" });
-  });
-
-  it("returns 409 when invite is already used during update", async () => {
-    setupAcceptInviteBase();
-
-    const selectQuery = createQuery({
-      data: baseInvite,
-      error: null
-    });
-    const updateQuery = createQuery({
-      data: null,
-      error: null
-    });
-    const fromMock = vi
-      .fn()
-      .mockReturnValueOnce(selectQuery)
-      .mockReturnValueOnce(updateQuery);
-    supabaseMocks.createServerSupabaseClient.mockReturnValue({ from: fromMock });
-
-    const response = await acceptInvite(acceptInviteRequest({ token: "token-abc" }));
-
-    expect(response.status).toBe(409);
-    expect(await response.json()).toEqual({ error: "Invite already used." });
-  });
-
-  it("returns 500 when membership creation fails", async () => {
-    setupAcceptInviteBase();
-
-    const selectQuery = createQuery({
-      data: baseInvite,
-      error: null
-    });
-    const updateQuery = createQuery({
-      data: { id: "invite-1" },
-      error: null
-    });
-    const insertQuery = createQuery({
-      data: null,
-      error: { message: "member insert failed" }
-    });
-    const fromMock = vi
-      .fn()
-      .mockReturnValueOnce(selectQuery)
-      .mockReturnValueOnce(updateQuery)
-      .mockReturnValueOnce(insertQuery);
-    supabaseMocks.createServerSupabaseClient.mockReturnValue({ from: fromMock });
-
-    const response = await acceptInvite(acceptInviteRequest({ token: "token-abc" }));
-
-    expect(response.status).toBe(500);
-    expect(await response.json()).toEqual({ error: "member insert failed" });
+    expect(await response.json()).toEqual({ error: "rpc failed" });
   });
 });

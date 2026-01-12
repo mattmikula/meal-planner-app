@@ -47,24 +47,150 @@ create table if not exists audit_log (
 create index if not exists audit_log_household_idx on audit_log(household_id);
 create index if not exists audit_log_entity_idx on audit_log(entity_type, entity_id);
 
+create temporary table user_households (
+  user_id uuid primary key,
+  household_id uuid not null
+);
+
+insert into user_households (user_id, household_id)
+select user_id, gen_random_uuid()
+from (
+  select user_id from meals
+  union
+  select user_id from plans
+) users;
+
+insert into households (id, created_by)
+select household_id, user_id
+from user_households;
+
+insert into household_members (household_id, user_id, role, status)
+select household_id, user_id, 'owner', 'active'
+from user_households
+on conflict (user_id) do nothing;
+
 alter table meals
-  add column if not exists household_id uuid not null references households(id) on delete cascade,
-  add column if not exists created_by uuid not null,
+  add column if not exists household_id uuid references households(id) on delete cascade,
+  add column if not exists created_by uuid,
   add column if not exists updated_by uuid,
-  add column if not exists updated_at timestamptz,
+  add column if not exists updated_at timestamptz;
+
+update meals
+set household_id = user_households.household_id,
+    created_by = meals.user_id
+from user_households
+where meals.user_id = user_households.user_id
+  and (meals.household_id is null or meals.created_by is null);
+
+alter table meals
+  alter column household_id set not null,
+  alter column created_by set not null,
   drop column if exists user_id;
 
 alter table plans
   drop constraint if exists plans_user_id_week_start_key,
-  add column if not exists household_id uuid not null references households(id) on delete cascade,
-  add column if not exists created_by uuid not null,
+  add column if not exists household_id uuid references households(id) on delete cascade,
+  add column if not exists created_by uuid,
   add column if not exists updated_by uuid,
-  add column if not exists updated_at timestamptz,
+  add column if not exists updated_at timestamptz;
+
+update plans
+set household_id = user_households.household_id,
+    created_by = plans.user_id
+from user_households
+where plans.user_id = user_households.user_id
+  and (plans.household_id is null or plans.created_by is null);
+
+alter table plans
+  alter column household_id set not null,
+  alter column created_by set not null,
   drop column if exists user_id,
   add constraint plans_household_week_start_key unique (household_id, week_start);
 
 alter table plan_days
-  add column if not exists household_id uuid not null references households(id) on delete cascade,
-  add column if not exists created_by uuid not null,
+  add column if not exists household_id uuid references households(id) on delete cascade,
+  add column if not exists created_by uuid,
   add column if not exists updated_by uuid,
   add column if not exists updated_at timestamptz;
+
+update plan_days
+set household_id = plans.household_id,
+    created_by = plans.created_by
+from plans
+where plan_days.plan_id = plans.id
+  and (plan_days.household_id is null or plan_days.created_by is null);
+
+alter table plan_days
+  alter column household_id set not null,
+  alter column created_by set not null;
+
+create or replace function accept_household_invite(
+  p_token_hash text,
+  p_user_id uuid,
+  p_email text
+)
+returns table (
+  household_id uuid,
+  member_id uuid,
+  error_message text,
+  error_status integer
+)
+language plpgsql
+as $$
+declare
+  invite_record household_invites%rowtype;
+  new_member_id uuid;
+begin
+  select * into invite_record
+  from household_invites
+  where token_hash = p_token_hash
+  for update;
+
+  if not found then
+    return query select null::uuid, null::uuid, 'Invalid or expired invite.', 400;
+    return;
+  end if;
+
+  if invite_record.accepted_at is not null then
+    return query select null::uuid, null::uuid, 'Invite already used.', 409;
+    return;
+  end if;
+
+  if invite_record.expires_at <= now() then
+    return query select null::uuid, null::uuid, 'Invite expired.', 400;
+    return;
+  end if;
+
+  if lower(invite_record.email) <> lower(p_email) then
+    return query select null::uuid, null::uuid, 'Invite email does not match.', 403;
+    return;
+  end if;
+
+  if exists (
+    select 1
+    from household_members
+    where user_id = p_user_id
+      and status = 'active'
+  ) then
+    return query select null::uuid, null::uuid, 'User already belongs to a household.', 409;
+    return;
+  end if;
+
+  begin
+    insert into household_members (household_id, user_id, role, status)
+    values (invite_record.household_id, p_user_id, 'member', 'active')
+    returning id into new_member_id;
+  exception
+    when unique_violation then
+      return query select null::uuid, null::uuid, 'User already belongs to a household.', 409;
+      return;
+  end;
+
+  update household_invites
+  set accepted_at = now(),
+      accepted_by = p_user_id
+  where id = invite_record.id;
+
+  return query select invite_record.household_id, new_member_id, null::text, null::int;
+end;
+$$;

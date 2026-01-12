@@ -1,24 +1,23 @@
 import { NextResponse } from "next/server";
 
 import { requireApiUser, setAuthCookies } from "@/lib/auth/server";
-import { fetchHouseholdMembership, hashInviteToken } from "@/lib/household/server";
+import { hashInviteToken } from "@/lib/household/server";
 import { createServerSupabaseClient } from "@/lib/supabase/server";
 
 type AcceptPayload = {
   token?: string;
 };
 
-type InviteRow = {
-  id: string;
-  household_id: string;
-  email: string;
-  expires_at: string;
-  accepted_at: string | null;
-};
-
 type InviteError = {
   message: string;
   status: number;
+};
+
+type InviteAcceptResult = {
+  household_id: string | null;
+  member_id: string | null;
+  error_message: string | null;
+  error_status: number | null;
 };
 
 const jsonError = (message: string, status: number) =>
@@ -28,22 +27,6 @@ const normalizeToken = (payload: AcceptPayload) => payload.token?.trim() ?? null
 
 const normalizeEmail = (email: string | null) => email?.trim().toLowerCase() ?? null;
 
-const isInviteExpired = (expiresAt: string) =>
-  new Date(expiresAt).getTime() <= Date.now();
-
-const getInviteError = (invite: InviteRow, email: string): InviteError | null => {
-  if (invite.accepted_at) {
-    return { message: "Invite already used.", status: 409 };
-  }
-  if (isInviteExpired(invite.expires_at)) {
-    return { message: "Invite expired.", status: 400 };
-  }
-  if (invite.email.toLowerCase() !== email) {
-    return { message: "Invite email does not match.", status: 403 };
-  }
-  return null;
-};
-
 async function parsePayload(request: Request): Promise<AcceptPayload | null> {
   try {
     return (await request.json()) as AcceptPayload;
@@ -52,73 +35,44 @@ async function parsePayload(request: Request): Promise<AcceptPayload | null> {
   }
 }
 
-async function loadInvite(supabase: ReturnType<typeof createServerSupabaseClient>, tokenHash: string) {
-  const { data, error } = await supabase
-    .from("household_invites")
-    .select("id, household_id, email, expires_at, accepted_at")
-    .eq("token_hash", tokenHash)
-    .maybeSingle();
-
-  if (error) {
-    throw new Error(error.message);
-  }
-
-  return data as InviteRow | null;
-}
-
-async function hasExistingMembership(
-  supabase: ReturnType<typeof createServerSupabaseClient>,
-  userId: string
-) {
-  const membership = await fetchHouseholdMembership(supabase, userId);
-  return Boolean(membership);
-}
-
 async function acceptInvite(
   supabase: ReturnType<typeof createServerSupabaseClient>,
-  inviteId: string,
-  userId: string
-) {
-  const now = new Date().toISOString();
+  tokenHash: string,
+  userId: string,
+  email: string
+): Promise<{ householdId: string; memberId: string } | InviteError> {
   const { data, error } = await supabase
-    .from("household_invites")
-    .update({
-      accepted_at: now,
-      accepted_by: userId
+    .rpc("accept_household_invite", {
+      p_token_hash: tokenHash,
+      p_user_id: userId,
+      p_email: email
     })
-    .eq("id", inviteId)
-    .is("accepted_at", null)
-    .select("id")
-    .maybeSingle();
+    .single();
 
   if (error) {
     throw new Error(error.message);
   }
 
-  return Boolean(data);
-}
-
-async function createMember(
-  supabase: ReturnType<typeof createServerSupabaseClient>,
-  householdId: string,
-  userId: string
-) {
-  const { data, error } = await supabase
-    .from("household_members")
-    .insert({
-      household_id: householdId,
-      user_id: userId,
-      role: "member",
-      status: "active"
-    })
-    .select("id")
-    .single();
-
-  if (error || !data) {
-    throw new Error(error?.message ?? "Unable to create membership.");
+  if (!data) {
+    throw new Error("Unable to accept invite.");
   }
 
-  return data.id as string;
+  const result = data as InviteAcceptResult;
+  if (result.error_message) {
+    return {
+      message: result.error_message,
+      status: result.error_status ?? 500
+    };
+  }
+
+  if (!result.household_id || !result.member_id) {
+    throw new Error("Unable to accept invite.");
+  }
+
+  return {
+    householdId: result.household_id,
+    memberId: result.member_id
+  };
 }
 
 export async function POST(request: Request) {
@@ -146,43 +100,20 @@ export async function POST(request: Request) {
 
   try {
     const tokenHash = hashInviteToken(token);
-    const invite = await loadInvite(supabase, tokenHash);
-
-    if (!invite) {
-      return jsonError("Invalid or expired invite.", 400);
-    }
-
-    const inviteError = getInviteError(invite, email);
-    if (inviteError) {
-      return jsonError(inviteError.message, inviteError.status);
-    }
-
-    const existingMembership = await hasExistingMembership(
+    const result = await acceptInvite(
       supabase,
-      authResult.userId
+      tokenHash,
+      authResult.userId,
+      email
     );
-    if (existingMembership) {
-      return jsonError("User already belongs to a household.", 409);
-    }
 
-    const accepted = await acceptInvite(
-      supabase,
-      invite.id,
-      authResult.userId
-    );
-    if (!accepted) {
-      return jsonError("Invite already used.", 409);
+    if ("status" in result) {
+      return jsonError(result.message, result.status);
     }
-
-    const memberId = await createMember(
-      supabase,
-      invite.household_id,
-      authResult.userId
-    );
 
     const response = NextResponse.json({
-      householdId: invite.household_id,
-      memberId
+      householdId: result.householdId,
+      memberId: result.memberId
     });
 
     if (authResult.session) {
