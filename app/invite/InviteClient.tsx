@@ -1,0 +1,199 @@
+"use client";
+
+import Link from "next/link";
+import { useEffect, useState } from "react";
+
+import { createApiClient } from "@/lib/api/client";
+import { getApiErrorMessage } from "@/lib/api/errors";
+
+type InviteStatus = "idle" | "loading" | "accepted" | "needs-auth" | "error";
+type InviteResult = { status: InviteStatus; message: string | null };
+
+const SENSITIVE_KEYS = ["access_token", "refresh_token", "token", "invite_token"];
+
+const MISSING_TOKEN_MESSAGE =
+  "Invite token is missing. Please open the invite link again.";
+
+const getParam = (
+  hashParams: URLSearchParams,
+  searchParams: URLSearchParams,
+  key: string
+) => hashParams.get(key) ?? searchParams.get(key);
+
+const hasSensitiveParams = (
+  hashParams: URLSearchParams,
+  searchParams: URLSearchParams
+) => SENSITIVE_KEYS.some((key) => hashParams.has(key) || searchParams.has(key));
+
+const buildCleanSearch = (searchParams: URLSearchParams) => {
+  const cleanParams = new URLSearchParams(searchParams);
+  SENSITIVE_KEYS.forEach((key) => {
+    cleanParams.delete(key);
+  });
+  return cleanParams.toString();
+};
+
+const readInviteParams = () => {
+  const hash = window.location.hash.replace(/^#/, "");
+  const hashParams = new URLSearchParams(hash);
+  const searchParams = new URLSearchParams(window.location.search);
+
+  const inviteToken =
+    getParam(hashParams, searchParams, "invite_token") ??
+    getParam(hashParams, searchParams, "token");
+
+  const accessToken = getParam(hashParams, searchParams, "access_token");
+
+  return {
+    inviteToken,
+    accessToken,
+    hasSensitive: hasSensitiveParams(hashParams, searchParams),
+    cleanSearch: buildCleanSearch(searchParams)
+  };
+};
+
+const replaceUrl = (pathname: string, search: string) => {
+  const nextUrl = `${pathname}${search ? `?${search}` : ""}`;
+  window.history.replaceState(null, "", nextUrl);
+};
+
+let cachedInvite:
+  | {
+      token: string;
+      result?: InviteResult;
+      promise?: Promise<InviteResult>;
+    }
+  | null = null;
+
+const acceptInviteToken = async (
+  inviteToken: string,
+  accessToken: string | null
+): Promise<InviteResult> => {
+  try {
+    const api = createApiClient(accessToken ? { token: accessToken } : undefined);
+    const { response, error } = await api.POST("/api/household/invites/accept", {
+      body: { token: inviteToken }
+    });
+
+    if (response?.ok) {
+      return { status: "accepted", message: null };
+    }
+
+    if (response?.status === 401) {
+      return { status: "needs-auth", message: "Please sign in to accept this invite." };
+    }
+
+    return {
+      status: "error",
+      message: getApiErrorMessage(error) ?? "Unable to accept invite."
+    };
+  } catch {
+    return { status: "error", message: "Unable to accept invite." };
+  }
+};
+
+const getInviteResult = (inviteToken: string, accessToken: string | null) => {
+  if (cachedInvite?.token === inviteToken) {
+    if (cachedInvite.result) {
+      return Promise.resolve(cachedInvite.result);
+    }
+    if (cachedInvite.promise) {
+      return cachedInvite.promise;
+    }
+  }
+
+  const promise = acceptInviteToken(inviteToken, accessToken)
+    .then((result) => {
+      if (cachedInvite?.token === inviteToken) {
+        cachedInvite.result = result;
+        cachedInvite.promise = undefined;
+      }
+      return result;
+    })
+    .catch((error) => {
+      if (cachedInvite?.token === inviteToken) {
+        cachedInvite.promise = undefined;
+      }
+      throw error;
+    });
+
+  cachedInvite = { token: inviteToken, promise };
+  return promise;
+};
+
+export default function InviteClient() {
+  const [status, setStatus] = useState<InviteStatus>("idle");
+  const [message, setMessage] = useState<string | null>(null);
+
+  useEffect(() => {
+    let isMounted = true;
+
+    const acceptInvite = async () => {
+      const { inviteToken, accessToken, hasSensitive, cleanSearch } = readInviteParams();
+      if (inviteToken) {
+        cachedInvite = { token: inviteToken };
+      }
+
+      const resolvedToken = inviteToken ?? cachedInvite?.token;
+
+      if (hasSensitive) {
+        replaceUrl(window.location.pathname, cleanSearch);
+      }
+
+      if (!resolvedToken) {
+        if (isMounted) {
+          setStatus("error");
+          setMessage(MISSING_TOKEN_MESSAGE);
+        }
+        return;
+      }
+
+      if (isMounted) {
+        setStatus("loading");
+      }
+
+      const result = await getInviteResult(resolvedToken, accessToken);
+      if (!isMounted) {
+        return;
+      }
+
+      setStatus(result.status);
+      setMessage(result.message);
+      if (cachedInvite?.token === resolvedToken) {
+        cachedInvite = null;
+      }
+    };
+
+    acceptInvite();
+
+    return () => {
+      isMounted = false;
+    };
+  }, []);
+
+  return (
+    <main style={{ fontFamily: "system-ui", padding: "2rem", maxWidth: "520px" }}>
+      <h1>Meal Planner</h1>
+      {status === "idle" || status === "loading" ? (
+        <p>Accepting your invite...</p>
+      ) : null}
+      {status === "accepted" ? (
+        <p>
+          Your invite is accepted. You can return to the app.{" "}
+          <Link href="/">Back to home</Link>
+        </p>
+      ) : null}
+      {status === "needs-auth" ? (
+        <p>
+          {message} Sign in on the home page, then reopen the invite link.
+        </p>
+      ) : null}
+      {status === "needs-auth" || status === "error" ? (
+        <p>
+          <Link href="/">Back to home</Link>
+        </p>
+      ) : null}
+      {status === "error" ? <p>{message}</p> : null}
+    </main>
+  );
+}
