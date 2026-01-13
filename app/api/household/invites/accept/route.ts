@@ -21,11 +21,15 @@ type InviteAcceptResult = {
   error_status: number | null;
 };
 
-const normalizeToken = (payload: AcceptPayload) => {
+const normalizeToken = (payload: AcceptPayload): string | null | "whitespace" => {
   if (typeof payload.token !== "string") {
     return null;
   }
-  return payload.token.trim() || null;
+  const trimmed = payload.token.trim();
+  if (!trimmed && payload.token.length > 0) {
+    return "whitespace";
+  }
+  return trimmed || null;
 };
 
 async function parsePayload(request: Request): Promise<AcceptPayload | null> {
@@ -86,6 +90,9 @@ export async function POST(request: Request) {
   const token = normalizeToken(payload);
   if (!token) {
     return jsonError("Token is required.", 400);
+  }
+  if (token === "whitespace") {
+    return jsonError("Token cannot be empty or whitespace.", 400);
   }
 
   const email = normalizeEmail(authResult.email);

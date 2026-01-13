@@ -9,8 +9,12 @@ import { getApiErrorMessage } from "@/lib/api/errors";
 type InviteStatus = "idle" | "loading" | "accepted" | "needs-auth" | "error";
 type InviteResult = { status: InviteStatus; message: string | null };
 
-// Supabase OAuth tokens and our invite token that should be removed from URLs
-const SENSITIVE_KEYS = ["access_token", "refresh_token", "invite_token"];
+// Supabase OAuth tokens that should be removed from URLs
+const OAUTH_SENSITIVE_KEYS = ["access_token", "refresh_token"];
+// Invite token parameter name - only this is valid for invite flows
+const INVITE_TOKEN_KEY = "invite_token";
+// All sensitive keys to remove from URLs
+const SENSITIVE_KEYS = [...OAUTH_SENSITIVE_KEYS, INVITE_TOKEN_KEY];
 
 const MISSING_TOKEN_MESSAGE =
   "Invite token is missing. Please open the invite link again.";
@@ -53,9 +57,7 @@ const readInviteParams = () => {
   const hashParams = new URLSearchParams(hash);
   const searchParams = new URLSearchParams(window.location.search);
 
-  const inviteToken =
-    getParam(hashParams, searchParams, "invite_token") ??
-    getParam(hashParams, searchParams, "token");
+  const inviteToken = getParam(hashParams, searchParams, INVITE_TOKEN_KEY);
 
   const accessToken = getParam(hashParams, searchParams, "access_token");
 
@@ -83,6 +85,15 @@ type CachedInvite = {
   result?: InviteResult;
   promise?: Promise<InviteResult>;
 } | null;
+
+const clearCacheIfTokenChanged = (
+  cache: { current: CachedInvite },
+  inviteToken: string | null
+) => {
+  if (cache.current && cache.current.token !== inviteToken) {
+    cache.current = null;
+  }
+};
 
 const acceptInviteToken = async (
   inviteToken: string,

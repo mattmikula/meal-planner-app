@@ -63,6 +63,22 @@ export function buildInviteExpiry(now: Date = new Date()) {
   return expiresAt.toISOString();
 }
 
+// Validate INVITE_ACCEPT_URL_BASE at module load time to prevent runtime failures
+const VALIDATED_INVITE_BASE_URL = (() => {
+  const baseUrl = process.env.INVITE_ACCEPT_URL_BASE?.trim();
+  if (!baseUrl) {
+    return null;
+  }
+  try {
+    // Validate that it's a proper URL; if not, we'll fail fast at startup
+    new URL(baseUrl);
+    return baseUrl;
+  } catch (e) {
+    console.error(`[STARTUP ERROR] Invalid INVITE_ACCEPT_URL_BASE: "${baseUrl}". Invite URL generation will fail.`, e);
+    return null;
+  }
+})();
+
 /**
  * Builds an invite URL with the token as a query parameter.
  * 
@@ -71,22 +87,16 @@ export function buildInviteExpiry(now: Date = new Date()) {
  * Invite links should be treated as sensitive and expire after INVITE_TTL_HOURS.
  * 
  * @param token - The raw invite token to include in the URL
- * @returns The complete invite URL, or null if INVITE_ACCEPT_URL_BASE is not configured
+ * @returns The complete invite URL, or null if INVITE_ACCEPT_URL_BASE is not configured or invalid
  */
 export function buildInviteUrl(token: string) {
-  const baseUrl = process.env.INVITE_ACCEPT_URL_BASE?.trim();
-  if (!baseUrl) {
+  if (!VALIDATED_INVITE_BASE_URL) {
     return null;
   }
 
-  try {
-    const url = new URL(baseUrl);
-    url.searchParams.set("invite_token", token);
-    return url.toString();
-  } catch {
-    const separator = baseUrl.includes("?") ? "&" : "?";
-    return `${encodeURI(baseUrl)}${separator}invite_token=${encodeURIComponent(token)}`;
-  }
+  const url = new URL(VALIDATED_INVITE_BASE_URL);
+  url.searchParams.set("invite_token", token);
+  return url.toString();
 }
 
 const mapMembership = (member: HouseholdMemberRow, userId: string) => ({

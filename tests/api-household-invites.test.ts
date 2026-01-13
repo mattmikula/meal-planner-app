@@ -170,8 +170,24 @@ describe("POST /api/household/invites", () => {
   });
 
   it("normalizes mixed-case email to lowercase", async () => {
-    const { insertQuery } = await setupCreateInviteSuccess("Ada@Example.com");
+    authMocks.requireApiUser.mockResolvedValue({ userId: "user-1", email: "test@example.com" });
 
+    const insertQuery = {
+      insert: vi.fn().mockReturnThis(),
+      select: vi.fn().mockResolvedValue({
+        data: [{ id: "invite-1", token_hash: "hash-123" }],
+        error: null
+      })
+    };
+
+    supabaseMocks.createServerSupabaseClient.mockReturnValue({
+      from: vi.fn().mockReturnValue(insertQuery)
+    });
+
+    // Input email with mixed case
+    await createInvite(createInviteRequest({ email: "Ada@Example.com" }));
+
+    // Verify it was normalized to lowercase in the database insert
     expect(insertQuery.insert).toHaveBeenCalledWith(
       expect.objectContaining({
         email: "ada@example.com"

@@ -190,6 +190,14 @@ begin
       ) users;
     end if;
 
+    -- Ensure all existing auth users get a household, even if they have no meals/plans yet.
+    -- This prevents issues when users without existing data try to create content later.
+    insert into user_households (user_id, household_id)
+    select id, gen_random_uuid()
+    from auth.users
+    where id not in (select user_id from user_households)
+    on conflict (user_id) do nothing;
+
     insert into households (id, created_by)
     select household_id, user_id
     from user_households;
@@ -235,6 +243,22 @@ begin
     where plans.user_id = user_households.user_id
       and (plans.household_id is null or plans.created_by is null);
 
+    -- Populate plan_days with household_id and created_by from plans if needed
+    if exists (
+      select 1
+      from plan_days
+      join plans on plan_days.plan_id = plans.id
+      where plan_days.household_id is null
+         or plan_days.created_by is null
+    ) then
+      update plan_days
+      set household_id = plans.household_id,
+          created_by = plans.created_by
+      from plans
+      where plan_days.plan_id = plans.id
+        and (plan_days.household_id is null or plan_days.created_by is null);
+    end if;
+
     drop table if exists user_households;
   end if;
 end $$;
@@ -274,12 +298,7 @@ alter table plan_days
   add column if not exists updated_by uuid,
   add column if not exists updated_at timestamptz;
 
-update plan_days
-set household_id = plans.household_id,
-    created_by = plans.created_by
-from plans
-where plan_days.plan_id = plans.id
-  and (plan_days.household_id is null or plan_days.created_by is null);
+-- Note: plan_days update moved inside migration block above to avoid unnecessary execution on fresh databases
 
 alter table plan_days
   alter column household_id set not null,
@@ -326,7 +345,7 @@ begin
   select * into invite_record
   from household_invites
   where token_hash = p_token_hash
-  for update;
+  for update skip locked;
 
   if not found then
     return query select null::uuid, null::uuid, 'Invalid or expired invite.', 400;
@@ -361,11 +380,24 @@ begin
       return;
     end if;
 
-    update household_members
-    set status = 'active',
-        updated_at = now()
-    where id = existing_member_id
-    returning id into new_member_id;
+    begin
+      update household_members
+      set status = 'active',
+          updated_at = now()
+      where id = existing_member_id
+      returning id into new_member_id;
+
+      -- Handle race condition: if update somehow failed and row was deleted/changed
+      if not found then
+        insert into household_members (household_id, user_id, role, status)
+        values (invite_record.household_id, v_user_id, 'member', 'active')
+        returning id into new_member_id;
+      end if;
+    exception
+      when unique_violation then
+        return query select null::uuid, null::uuid, 'User already belongs to this household.', 409;
+        return;
+    end;
   else
     begin
       insert into household_members (household_id, user_id, role, status)
@@ -383,7 +415,10 @@ begin
       accepted_by = v_user_id
   where id = invite_record.id;
 
-  -- Update current household to the newly joined one
+  -- Automatically switch user's current household to the newly joined one.
+  -- WARNING: This unconditionally changes the user's context, which may disrupt
+  -- their workflow if they were actively using a different household.
+  -- Future enhancement: Make this optional or prompt the user to switch.
   insert into user_household_settings (user_id, current_household_id)
   values (v_user_id, invite_record.household_id)
   on conflict (user_id) do update

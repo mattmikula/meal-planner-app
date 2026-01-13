@@ -33,6 +33,9 @@ export function isSecureRequest(
     if (proto === "http") {
       return false;
     }
+    // Header is present but has an unexpected value; treat as insecure rather than
+    // falling back to the URL protocol to avoid ambiguous/misleading behavior.
+    return false;
   }
 
   return new URL(requestUrl).protocol === "https:";
