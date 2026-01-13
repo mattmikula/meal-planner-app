@@ -190,28 +190,55 @@ begin
     from user_households
     on conflict (user_id) do nothing;
 
+    -- Add new columns to meals table before updating
+    alter table meals
+      add column if not exists household_id uuid references households(id) on delete cascade,
+      add column if not exists created_by uuid,
+      add column if not exists updated_by uuid,
+      add column if not exists updated_at timestamptz;
+
+    -- Update meals with household_id and created_by from user_households mapping
+    update meals
+    set household_id = user_households.household_id,
+        created_by = meals.user_id
+    from user_households
+    where meals.user_id = user_households.user_id
+      and (meals.household_id is null or meals.created_by is null);
+
+    -- Add new columns to plans table before updating
+    alter table plans
+      drop constraint if exists plans_user_id_week_start_key,
+      add column if not exists household_id uuid references households(id) on delete cascade,
+      add column if not exists created_by uuid,
+      add column if not exists updated_by uuid,
+      add column if not exists updated_at timestamptz;
+
+    -- Update plans with household_id and created_by from user_households mapping
+    update plans
+    set household_id = user_households.household_id,
+        created_by = plans.user_id
+    from user_households
+    where plans.user_id = user_households.user_id
+      and (plans.household_id is null or plans.created_by is null);
+
     drop table if exists user_households;
   end if;
 end $$;
 
+-- Ensure columns exist (idempotent for fresh databases or reruns)
 alter table meals
   add column if not exists household_id uuid references households(id) on delete cascade,
   add column if not exists created_by uuid,
   add column if not exists updated_by uuid,
   add column if not exists updated_at timestamptz;
 
-update meals
-set household_id = user_households.household_id,
-    created_by = meals.user_id
-from user_households
-where meals.user_id = user_households.user_id
-  and (meals.household_id is null or meals.created_by is null);
-
+-- Finalize meals schema
 alter table meals
   alter column household_id set not null,
   alter column created_by set not null,
   drop column if exists user_id;
 
+-- Ensure columns exist (idempotent for fresh databases or reruns)
 alter table plans
   drop constraint if exists plans_user_id_week_start_key,
   add column if not exists household_id uuid references households(id) on delete cascade,
@@ -219,12 +246,7 @@ alter table plans
   add column if not exists updated_by uuid,
   add column if not exists updated_at timestamptz;
 
-update plans
-set household_id = user_households.household_id,
-    created_by = plans.user_id
-from user_households
-where plans.user_id = user_households.user_id
-  and (plans.household_id is null or plans.created_by is null);
+-- Finalize plans schema
 
 alter table plans
   alter column household_id set not null,
