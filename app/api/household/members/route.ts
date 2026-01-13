@@ -1,6 +1,7 @@
 import { NextResponse } from "next/server";
 
-import { requireApiUser, setAuthCookies } from "@/lib/auth/server";
+import { applyAuthCookies, jsonError } from "@/lib/api/helpers";
+import { requireApiUser } from "@/lib/auth/server";
 import { ensureHouseholdContext } from "@/lib/household/server";
 import { createServerSupabaseClient } from "@/lib/supabase/server";
 
@@ -10,26 +11,6 @@ type MemberRow = {
   role: string;
   status: string;
   created_at: string;
-};
-
-const jsonError = (message: string, status: number) =>
-  NextResponse.json({ error: message }, { status });
-
-const isSecureRequest = (requestUrl: string) =>
-  new URL(requestUrl).protocol === "https:";
-
-const applyAuthCookies = (
-  response: NextResponse,
-  session: Parameters<typeof setAuthCookies>[1] | undefined,
-  requestUrl: string
-) => {
-  if (!session) {
-    return;
-  }
-
-  setAuthCookies(response, session, {
-    secure: isSecureRequest(requestUrl)
-  });
 };
 
 const mapMembers = (members: MemberRow[]) =>

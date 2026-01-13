@@ -70,7 +70,7 @@ export function buildInviteUrl(token: string) {
     return url.toString();
   } catch {
     const separator = baseUrl.includes("?") ? "&" : "?";
-    return `${baseUrl}${separator}invite_token=${encodeURIComponent(token)}`;
+    return `${encodeURI(baseUrl)}${separator}invite_token=${encodeURIComponent(token)}`;
   }
 }
 

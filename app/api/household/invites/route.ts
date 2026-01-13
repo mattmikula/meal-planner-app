@@ -1,6 +1,7 @@
 import { NextResponse } from "next/server";
 
-import { requireApiUser, setAuthCookies } from "@/lib/auth/server";
+import { applyAuthCookies, jsonError, normalizeEmail } from "@/lib/api/helpers";
+import { requireApiUser } from "@/lib/auth/server";
 import {
   buildInviteExpiry,
   buildInviteUrl,
@@ -11,16 +12,6 @@ import { createServerSupabaseClient } from "@/lib/supabase/server";
 
 type InvitePayload = {
   email?: string;
-};
-
-const jsonError = (message: string, status: number) =>
-  NextResponse.json({ error: message }, { status });
-
-const normalizeEmail = (payload: InvitePayload) => {
-  if (typeof payload.email !== "string") {
-    return null;
-  }
-  return payload.email.trim().toLowerCase() || null;
 };
 
 async function parsePayload(request: Request): Promise<InvitePayload | null> {
@@ -69,7 +60,12 @@ export async function POST(request: Request) {
     return jsonError("Invalid request body.", 400);
   }
 
-  const email = normalizeEmail(payload);
+  // Validate that email is a string (runtime check for untrusted input)
+  if (payload.email !== undefined && typeof payload.email !== "string") {
+    return jsonError("Email is required.", 400);
+  }
+
+  const email = normalizeEmail(payload.email);
   if (!email) {
     return jsonError("Email is required.", 400);
   }
@@ -95,12 +91,7 @@ export async function POST(request: Request) {
     );
 
     const response = NextResponse.json({ inviteId, inviteUrl });
-
-    if (authResult.session) {
-      setAuthCookies(response, authResult.session, {
-        secure: new URL(request.url).protocol === "https:"
-      });
-    }
+    applyAuthCookies(response, authResult.session, request.url);
 
     return response;
   } catch (error) {

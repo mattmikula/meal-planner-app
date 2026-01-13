@@ -91,22 +91,36 @@ const acceptInviteToken = async (
   }
 };
 
+/**
+ * Gets the invite acceptance result, using cache to prevent duplicate API calls.
+ *
+ * Cache strategy:
+ * - If we have a cached result for this token, return it immediately
+ * - If we have an in-flight request for this token, return that promise (deduplication)
+ * - Otherwise, start a new request and cache the promise
+ * - Cache is invalidated if the token changes
+ */
 const getInviteResult = (
   inviteToken: string,
   accessToken: string | null,
   cache: { current: CachedInvite }
 ) => {
+  // Check if we already have a result or in-flight request for this token
   if (cache.current?.token === inviteToken) {
+    // Return cached result if available
     if (cache.current.result) {
       return Promise.resolve(cache.current.result);
     }
+    // Return in-flight promise to avoid duplicate requests
     if (cache.current.promise) {
       return cache.current.promise;
     }
   }
 
+  // Start a new request
   const promise = acceptInviteToken(inviteToken, accessToken, cache)
     .then((result) => {
+      // Only cache result if token hasn't changed
       if (cache.current?.token === inviteToken) {
         cache.current.result = result;
         cache.current.promise = undefined;
@@ -114,6 +128,7 @@ const getInviteResult = (
       return result;
     })
     .catch((error) => {
+      // Clean up promise on error if token hasn't changed
       if (cache.current?.token === inviteToken) {
         cache.current.promise = undefined;
       }

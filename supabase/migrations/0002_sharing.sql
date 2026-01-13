@@ -37,7 +37,7 @@ create table if not exists household_invites (
   accepted_by uuid
 );
 
-create index if not exists household_invites_token_hash_idx on household_invites(token_hash);
+create unique index if not exists household_invites_token_hash_idx on household_invites(token_hash);
 create index if not exists household_invites_household_idx on household_invites(household_id);
 
 create table if not exists audit_log (
@@ -138,6 +138,9 @@ where plan_days.plan_id = plans.id
 alter table plan_days
   alter column household_id set not null,
   alter column created_by set not null;
+
+-- Clean up temporary migration table
+drop table if exists user_households;
 
 create or replace function accept_household_invite(
   p_token_hash text,

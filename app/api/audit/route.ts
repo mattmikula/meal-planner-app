@@ -1,6 +1,7 @@
 import { NextResponse } from "next/server";
 
-import { requireApiUser, setAuthCookies } from "@/lib/auth/server";
+import { applyAuthCookies, jsonError } from "@/lib/api/helpers";
+import { requireApiUser } from "@/lib/auth/server";
 import { ensureHouseholdContext } from "@/lib/household/server";
 import { createServerSupabaseClient } from "@/lib/supabase/server";
 
@@ -15,9 +16,6 @@ type AuditRow = {
   created_at: string;
   summary: Record<string, unknown>;
 };
-
-const jsonError = (message: string, status: number) =>
-  NextResponse.json({ error: message }, { status });
 
 const parseLimit = (limitParam: string | null) =>
   Math.min(Math.max(Number.parseInt(limitParam ?? "50", 10) || 50, 1), 100);
@@ -59,16 +57,15 @@ export async function GET(request: Request) {
 
   try {
     const context = await ensureHouseholdContext(supabase, authResult.userId);
-    let query = supabase
+
+    const baseQuery = supabase
       .from("audit_log")
       .select("id, entity_type, entity_id, action, actor_user_id, created_at, summary")
       .eq("household_id", context.household.id)
       .order("created_at", { ascending: false })
       .limit(limit);
 
-    if (entity) {
-      query = query.eq("entity_type", entity);
-    }
+    const query = entity ? baseQuery.eq("entity_type", entity) : baseQuery;
 
     const { data, error } = await query;
 
@@ -79,12 +76,7 @@ export async function GET(request: Request) {
     const items = mapAuditRows(data as AuditRow[] | null);
 
     const response = NextResponse.json({ items });
-
-    if (authResult.session) {
-      setAuthCookies(response, authResult.session, {
-        secure: new URL(request.url).protocol === "https:"
-      });
-    }
+    applyAuthCookies(response, authResult.session, request.url);
 
     return response;
   } catch (error) {

@@ -1,6 +1,7 @@
 import { NextResponse } from "next/server";
 
-import { requireApiUser, setAuthCookies } from "@/lib/auth/server";
+import { applyAuthCookies, jsonError, normalizeEmail } from "@/lib/api/helpers";
+import { requireApiUser } from "@/lib/auth/server";
 import { hashInviteToken } from "@/lib/household/server";
 import { createServerSupabaseClient } from "@/lib/supabase/server";
 
@@ -20,17 +21,12 @@ type InviteAcceptResult = {
   error_status: number | null;
 };
 
-const jsonError = (message: string, status: number) =>
-  NextResponse.json({ error: message }, { status });
-
 const normalizeToken = (payload: AcceptPayload) => {
   if (typeof payload.token !== "string") {
     return null;
   }
   return payload.token.trim() || null;
 };
-
-const normalizeEmail = (email: string | null) => email?.trim().toLowerCase() ?? null;
 
 async function parsePayload(request: Request): Promise<AcceptPayload | null> {
   try {
@@ -120,12 +116,7 @@ export async function POST(request: Request) {
       householdId: result.householdId,
       memberId: result.memberId
     });
-
-    if (authResult.session) {
-      setAuthCookies(response, authResult.session, {
-        secure: new URL(request.url).protocol === "https:"
-      });
-    }
+    applyAuthCookies(response, authResult.session, request.url);
 
     return response;
   } catch (error) {

@@ -1,14 +1,9 @@
 import { NextResponse } from "next/server";
 
-import { requireApiUser, setAuthCookies } from "@/lib/auth/server";
+import { applyAuthCookies, jsonError } from "@/lib/api/helpers";
+import { requireApiUser } from "@/lib/auth/server";
 import { ensureHouseholdContext } from "@/lib/household/server";
 import { createServerSupabaseClient } from "@/lib/supabase/server";
-
-const jsonError = (message: string, status: number) =>
-  NextResponse.json({ error: message }, { status });
-
-const isSecureRequest = (requestUrl: string) =>
-  new URL(requestUrl).protocol === "https:";
 
 const buildHouseholdPayload = (context: {
   household: { id: string; name: string | null };
@@ -19,20 +14,6 @@ const buildHouseholdPayload = (context: {
   role: context.membership.role,
   status: context.membership.status
 });
-
-const applyAuthCookies = (
-  response: NextResponse,
-  session: Parameters<typeof setAuthCookies>[1] | undefined,
-  requestUrl: string
-) => {
-  if (!session) {
-    return;
-  }
-
-  setAuthCookies(response, session, {
-    secure: isSecureRequest(requestUrl)
-  });
-};
 
 export async function GET(request: Request) {
   const authResult = await requireApiUser(request);
