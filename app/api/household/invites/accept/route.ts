@@ -23,11 +23,9 @@ const normalizeToken = (payload: AcceptPayload): TokenValidationResult => {
     return { valid: false, error: "missing" };
   }
   const trimmed = payload.token.trim();
-  if (!trimmed && payload.token.length > 0) {
-    return { valid: false, error: "whitespace" };
-  }
   if (!trimmed) {
-    return { valid: false, error: "missing" };
+    // If original had content but trimmed is empty, it was whitespace-only
+    return { valid: false, error: payload.token ? "whitespace" : "missing" };
   }
   return { valid: true, token: trimmed };
 };
@@ -96,12 +94,9 @@ export async function POST(request: Request) {
       return jsonError("Invite expired.", 400);
     }
 
-    // Email comparison - both should be lowercase after normalization
-    if (invite.email.toLowerCase() !== userEmail.toLowerCase()) {
-      return jsonError(
-        "This invite was sent to a different email address than the one you're signed in with.",
-        403
-      );
+    // Email comparison - invite.email is stored lowercase, userEmail is normalized
+    if (invite.email !== userEmail) {
+      return jsonError("This invite is for a different email address.", 403);
     }
 
     // Call minimal atomic function for database operations

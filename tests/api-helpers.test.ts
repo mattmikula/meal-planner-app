@@ -1,6 +1,12 @@
-import { describe, expect, it } from "vitest";
+import { beforeEach, describe, expect, it, vi } from "vitest";
 
-import { isSecureRequest, jsonError } from "@/lib/api/helpers";
+import { applyAuthCookies, isSecureRequest, jsonError } from "@/lib/api/helpers";
+
+// Mock setAuthCookies from auth/server
+const mockSetAuthCookies = vi.fn();
+vi.mock("@/lib/auth/server", () => ({
+  setAuthCookies: (...args: unknown[]) => mockSetAuthCookies(...args)
+}));
 
 describe("jsonError", () => {
   it("creates a JSON response with error message and status", async () => {
@@ -55,5 +61,58 @@ describe("isSecureRequest", () => {
 
   it("returns false for null forwarded proto with http URL", () => {
     expect(isSecureRequest("http://localhost/api", null)).toBe(false);
+  });
+});
+
+describe("applyAuthCookies", () => {
+  // Minimal mock session that satisfies the type
+  const mockSession = {
+    access_token: "token",
+    refresh_token: "refresh",
+    expires_in: 3600,
+    token_type: "bearer",
+    user: { id: "user-1", email: "test@example.com" }
+  } as Parameters<typeof applyAuthCookies>[1];
+
+  beforeEach(() => {
+    mockSetAuthCookies.mockClear();
+  });
+
+  it("does not call setAuthCookies when session is undefined", () => {
+    const response = jsonError("test", 200);
+    const request = new Request("https://example.com/api");
+
+    applyAuthCookies(response, undefined, request);
+
+    expect(mockSetAuthCookies).not.toHaveBeenCalled();
+  });
+
+  it("calls setAuthCookies with secure=true for HTTPS requests", () => {
+    const response = jsonError("test", 200);
+    const request = new Request("https://example.com/api");
+
+    applyAuthCookies(response, mockSession, request);
+
+    expect(mockSetAuthCookies).toHaveBeenCalledWith(response, mockSession, { secure: true });
+  });
+
+  it("calls setAuthCookies with secure=false for HTTP requests", () => {
+    const response = jsonError("test", 200);
+    const request = new Request("http://localhost/api");
+
+    applyAuthCookies(response, mockSession, request);
+
+    expect(mockSetAuthCookies).toHaveBeenCalledWith(response, mockSession, { secure: false });
+  });
+
+  it("uses X-Forwarded-Proto header to determine secure flag", () => {
+    const response = jsonError("test", 200);
+    const request = new Request("http://localhost/api", {
+      headers: { "x-forwarded-proto": "https" }
+    });
+
+    applyAuthCookies(response, mockSession, request);
+
+    expect(mockSetAuthCookies).toHaveBeenCalledWith(response, mockSession, { secure: true });
   });
 });

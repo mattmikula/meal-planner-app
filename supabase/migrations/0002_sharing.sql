@@ -11,8 +11,8 @@ create table if not exists household_members (
   id uuid primary key default gen_random_uuid(),
   household_id uuid not null references households(id) on delete cascade,
   user_id uuid not null,
-  role text not null default 'member',
-  status text not null default 'active',
+  role text not null default 'member' check (role in ('owner', 'member')),
+  status text not null default 'active' check (status in ('active', 'inactive')),
   created_at timestamptz not null default now(),
   updated_at timestamptz not null default now(),
   unique (household_id, user_id)
@@ -186,6 +186,9 @@ begin
     select 1 from information_schema.columns
     where table_name = 'meals' and column_name = 'user_id'
   ) then
+    -- Drop temp table if it exists from a previous failed run in the same session
+    drop table if exists user_households;
+
     -- Create a temporary mapping table to establish which household each user should belong to.
     -- This table maps each existing user (from meals/plans) to a newly generated household ID,
     -- allowing us to atomically migrate all user data to the household-based schema.
@@ -420,6 +423,7 @@ create or replace function create_household_with_member(p_user_id uuid)
 returns table(household_id uuid, member_id uuid) 
 language plpgsql
 security definer
+set search_path = public
 as $$
 declare
   new_household_id uuid;

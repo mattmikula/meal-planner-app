@@ -24,7 +24,7 @@ Visit `http://localhost:3000/api/health` to confirm database connectivity.
 
 ## Sharing Invites
 
-Household invites return a shareable link that redirects to `/invite` with a query param. Configure
+Household invites return a shareable link to `/invite` with the invite token as a query parameter. Configure
 `INVITE_ACCEPT_URL_BASE` in `.env.local` (for example, `http://localhost:3000/invite`) so the API
 can build invite links. The invite accept flow calls `POST /api/household/invites/accept` after the
 user signs in.

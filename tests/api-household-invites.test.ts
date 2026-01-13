@@ -416,7 +416,7 @@ describe("POST /api/household/invites/accept", () => {
     const response = await acceptInvite(acceptInviteRequest({ token: "token-abc" }));
 
     expect(response.status).toBe(403);
-    expect(await response.json()).toEqual({ error: "This invite was sent to a different email address than the one you're signed in with." });
+    expect(await response.json()).toEqual({ error: "This invite is for a different email address." });
   });
 
   it("rejects expired invites", async () => {

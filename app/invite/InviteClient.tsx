@@ -181,7 +181,8 @@ export default function InviteClient() {
 
     const acceptInvite = async () => {
       const { inviteToken, accessToken, hasSensitive, cleanSearch, cleanHash } = readInviteParams();
-      if (inviteToken) {
+      // Only update cache if we have a new token (preserves in-flight requests in StrictMode)
+      if (inviteToken && cacheRef.current?.token !== inviteToken) {
         cacheRef.current = { token: inviteToken };
       }
 
