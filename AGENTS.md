@@ -102,3 +102,8 @@
 - Apply schema updates via `supabase/migrations/` before testing API routes.
 - Web auth uses email OTP verification with HttpOnly cookies; keep mobile clients on bearer tokens.
 - Only collect as much information as needed for the feature to work. Prefer not to collect something if we don't need it.
+
+
+# ExecPlans
+ 
+When writing complex features or significant refactors, use an ExecPlan (as described in .agent/PLANS.md) from design to implementation.

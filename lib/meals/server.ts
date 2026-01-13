@@ -102,7 +102,7 @@ export async function createMeal(
   
   // Log audit event (fire-and-forget for activity tracking)
   // Errors are intentionally not checked as audit logging is best-effort
-  await supabase.from("audit_log").insert({
+  void supabase.from("audit_log").insert({
     household_id: householdId,
     entity_type: "meal",
     entity_id: meal.id,
@@ -190,7 +190,7 @@ export async function updateMeal(
   
   // Log audit event (fire-and-forget for activity tracking)
   // Errors are intentionally not checked as audit logging is best-effort
-  await supabase.from("audit_log").insert({
+  void supabase.from("audit_log").insert({
     household_id: householdId,
     entity_type: "meal",
     entity_id: meal.id,
@@ -235,7 +235,7 @@ export async function deleteMeal(
   
   // Log audit event (fire-and-forget for activity tracking)
   // Errors are intentionally not checked as audit logging is best-effort
-  await supabase.from("audit_log").insert({
+  void supabase.from("audit_log").insert({
     household_id: householdId,
     entity_type: "meal",
     entity_id: mealId,

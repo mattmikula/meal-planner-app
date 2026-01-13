@@ -934,6 +934,7 @@ export interface components {
             name: string;
             notes?: string;
         };
+        /** @description At least one field (name or notes) must be provided. */
         UpdateMealRequest: {
             name?: string;
             notes?: string;

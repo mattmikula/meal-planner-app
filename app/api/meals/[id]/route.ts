@@ -11,7 +11,7 @@ import {
 import { createServerSupabaseClient } from "@/lib/supabase/server";
 
 type RouteContext = {
-  params: Promise<{ id: string }>;
+  params: { id: string };
 };
 
 export async function PATCH(request: Request, context: RouteContext) {
@@ -20,7 +20,7 @@ export async function PATCH(request: Request, context: RouteContext) {
     return authResult.response;
   }
 
-  const { id: mealId } = await context.params;
+  const { id: mealId } = context.params;
 
   let body: unknown;
   try {

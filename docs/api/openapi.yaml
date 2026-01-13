@@ -851,6 +851,7 @@ components:
 
     UpdateMealRequest:
       type: object
+      description: At least one field (name or notes) must be provided.
       properties:
         name:
           type: string

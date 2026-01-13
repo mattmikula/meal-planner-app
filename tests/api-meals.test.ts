@@ -1,7 +1,5 @@
 import { beforeEach, describe, expect, it, vi } from "vitest";
 
-import { createQuery } from "@/tests/supabase-mock";
-
 const authMocks = vi.hoisted(() => ({
   requireApiUser: vi.fn(),
   setAuthCookies: vi.fn()
