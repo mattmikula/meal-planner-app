@@ -93,9 +93,10 @@ create policy "Users can view household members"
     )
   );
 
--- Household members: allow insert through RPC only (via accept_household_invite)
+-- Household members: allow management through service role only (via RPC functions)
 create policy "System can manage household members"
   on household_members for all
+  to service_role
   using (true)
   with check (true);
 
@@ -129,9 +130,10 @@ create policy "Household members can create invites"
     )
   );
 
--- Household invites: allow updates through RPC only (via accept_household_invite)
+-- Household invites: allow updates through service role only (via RPC functions)
 create policy "System can update invites"
   on household_invites for update
+  to service_role
   using (true)
   with check (true);
 
@@ -147,9 +149,10 @@ create policy "Household members can view audit logs"
     )
   );
 
--- Audit log: system can insert audit events
+-- Audit log: system can insert audit events (service role only)
 create policy "System can create audit logs"
   on audit_log for insert
+  to service_role
   with check (true);
 
 -- One-time migration: establish mapping between existing users and their newly created households.
@@ -288,6 +291,7 @@ returns table (
   error_status integer
 )
 language plpgsql
+security definer
 as $$
 declare
   invite_record household_invites%rowtype;

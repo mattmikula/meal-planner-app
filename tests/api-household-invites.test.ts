@@ -128,7 +128,7 @@ describe("POST /api/household/invites", () => {
     const response = await createInvite(createInviteRequest({ email: 123 }));
 
     expect(response.status).toBe(400);
-    expect(await response.json()).toEqual({ error: "Email is required." });
+    expect(await response.json()).toEqual({ error: "Email must be a string." });
   });
 
   it("does not touch the database when email is missing", async () => {

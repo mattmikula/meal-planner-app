@@ -60,9 +60,13 @@ export async function POST(request: Request) {
     return jsonError("Invalid request body.", 400);
   }
 
-  // Validate that email is a string (runtime check for untrusted input)
-  if (payload.email !== undefined && typeof payload.email !== "string") {
+  // Validate that email is present and a string (runtime check for untrusted input)
+  if (payload.email === undefined) {
     return jsonError("Email is required.", 400);
+  }
+
+  if (typeof payload.email !== "string") {
+    return jsonError("Email must be a string.", 400);
   }
 
   const email = normalizeEmail(payload.email);

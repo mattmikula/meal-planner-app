@@ -209,51 +209,7 @@ export async function ensureHouseholdContext(
   );
 
   if (rpcError || !result) {
-    // Fall back to non-transactional approach if RPC doesn't exist (for backwards compatibility)
-    const { data: household, error: householdError } = await supabase
-      .from("households")
-      .insert({ created_by: userId })
-      .select("id, name, created_at")
-      .single();
-
-    if (householdError || !household) {
-      throw new Error(householdError?.message ?? "Unable to create household");
-    }
-
-    const { data: member, error: memberError } = await supabase
-      .from("household_members")
-      .insert({
-        household_id: household.id,
-        user_id: userId,
-        role: "owner",
-        status: "active"
-      })
-      .select("id, household_id, role, status, created_at")
-      .single();
-
-    if (memberError || !member) {
-      throw new Error(memberError?.message ?? "Unable to create household member");
-    }
-
-    const membership = member as HouseholdMemberRow;
-
-    await setCurrentHouseholdId(supabase, userId, household.id);
-
-    return {
-      household: {
-        id: household.id,
-        name: household.name,
-        createdAt: household.created_at
-      },
-      membership: {
-        id: membership.id,
-        householdId: membership.household_id,
-        userId,
-        role: membership.role,
-        status: membership.status,
-        createdAt: membership.created_at
-      }
-    };
+    throw new Error(rpcError?.message ?? "Unable to create household");
   }
 
   await setCurrentHouseholdId(supabase, userId, result.household_id);
