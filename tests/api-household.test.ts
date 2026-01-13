@@ -172,6 +172,6 @@ describe("GET /api/household/members", () => {
     );
 
     expect(response.status).toBe(500);
-    expect(await response.json()).toEqual({ error: "db error" });
+    expect(await response.json()).toEqual({ error: "Unable to load members." });
   });
 });

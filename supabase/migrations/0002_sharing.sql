@@ -40,6 +40,7 @@ create table if not exists household_invites (
 create unique index if not exists household_invites_token_hash_idx on household_invites(token_hash);
 create index if not exists household_invites_household_idx on household_invites(household_id);
 create index if not exists household_invites_email_idx on household_invites(email);
+create index if not exists household_invites_expires_at_idx on household_invites(expires_at);
 
 create table if not exists audit_log (
   id uuid primary key default gen_random_uuid(),
@@ -338,6 +339,7 @@ alter table plan_days
 --   4. Update user's current household setting
 --
 -- Returns error_code values:
+--   'invite_not_found' - Invite does not exist (concurrent deletion or invalid ID)
 --   'already_accepted' - Invite was already used
 --   'already_member' - User is already an active member of this household
 --   null - Success (member_id will be set)
@@ -365,6 +367,12 @@ begin
   from household_invites
   where id = p_invite_id
   for update;
+
+  -- Defense-in-depth: handle case where invite was deleted between API validation and RPC call
+  if invite_already_accepted is null then
+    return query select null::uuid, 'invite_not_found'::text;
+    return;
+  end if;
 
   if invite_already_accepted then
     return query select null::uuid, 'already_accepted'::text;

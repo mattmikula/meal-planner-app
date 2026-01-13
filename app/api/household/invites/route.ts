@@ -115,7 +115,8 @@ export async function POST(request: Request) {
     if (error instanceof InviteUrlConfigError) {
       return jsonError("Invite URL configuration is missing or invalid.", 500);
     }
-    const message = error instanceof Error ? error.message : "Unable to create invite.";
-    return jsonError(message, 500);
+    // Log internal error details but return generic message to avoid leaking internals
+    console.error("[create-invite] Error:", error instanceof Error ? error.message : error);
+    return jsonError("Unable to create invite.", 500);
   }
 }

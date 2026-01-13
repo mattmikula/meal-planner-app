@@ -319,7 +319,7 @@ export async function fetchInviteByTokenHash(
 }
 
 // Error codes returned by accept_invite_atomic
-export type InviteAcceptErrorCode = "already_accepted" | "already_member";
+export type InviteAcceptErrorCode = "invite_not_found" | "already_accepted" | "already_member";
 
 type AcceptInviteAtomicResult = {
   member_id: string | null;

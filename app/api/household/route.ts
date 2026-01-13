@@ -30,7 +30,8 @@ export async function GET(request: Request) {
 
     return response;
   } catch (error) {
-    const message = error instanceof Error ? error.message : "Unable to load household.";
-    return jsonError(message, 500);
+    // Log internal error details but return generic message to avoid leaking internals
+    console.error("[household] Error:", error instanceof Error ? error.message : error);
+    return jsonError("Unable to load household.", 500);
   }
 }

@@ -94,7 +94,8 @@ export async function GET(request: Request) {
 
     return response;
   } catch (error) {
-    const message = error instanceof Error ? error.message : "Unable to load audit events.";
-    return jsonError(message, 500);
+    // Log internal error details but return generic message to avoid leaking internals
+    console.error("[audit] Error:", error instanceof Error ? error.message : error);
+    return jsonError("Unable to load audit events.", 500);
   }
 }

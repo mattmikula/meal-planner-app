@@ -239,7 +239,7 @@ describe("POST /api/household/invites", () => {
     const response = await setupCreateInviteInsertFailure();
 
     expect(response.status).toBe(500);
-    expect(await response.json()).toEqual({ error: "db error" });
+    expect(await response.json()).toEqual({ error: "Unable to create invite." });
   });
 
   it("returns 500 when invite URL configuration is missing", async () => {
@@ -439,6 +439,16 @@ describe("POST /api/household/invites/accept", () => {
     const response = await acceptInvite(acceptInviteRequest({ token: "token-abc" }));
 
     expect(response.status).toBe(500);
-    expect(await response.json()).toEqual({ error: "rpc failed" });
+    expect(await response.json()).toEqual({ error: "Unable to accept invite." });
+  });
+
+  it("returns 400 when invite was deleted between validation and atomic call", async () => {
+    setupAcceptInviteBase();
+    householdMocks.acceptInviteAtomic.mockResolvedValue({ errorCode: "invite_not_found" });
+
+    const response = await acceptInvite(acceptInviteRequest({ token: "token-abc" }));
+
+    expect(response.status).toBe(400);
+    expect(await response.json()).toEqual({ error: "Invalid or expired invite." });
   });
 });

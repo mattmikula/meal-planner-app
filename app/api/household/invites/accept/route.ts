@@ -43,6 +43,8 @@ async function parsePayload(request: Request): Promise<AcceptPayload | null> {
  */
 function mapErrorCode(errorCode: InviteAcceptErrorCode): { message: string; status: number } {
   switch (errorCode) {
+    case "invite_not_found":
+      return { message: "Invalid or expired invite.", status: 400 };
     case "already_accepted":
       return { message: "Invite already used.", status: 409 };
     case "already_member":
@@ -120,7 +122,8 @@ export async function POST(request: Request) {
 
     return response;
   } catch (error) {
-    const message = error instanceof Error ? error.message : "Unable to accept invite.";
-    return jsonError(message, 500);
+    // Log internal error details but return generic message to avoid leaking internals
+    console.error("[accept-invite] Error:", error instanceof Error ? error.message : error);
+    return jsonError("Unable to accept invite.", 500);
   }
 }
