@@ -71,6 +71,15 @@ const readInviteParams = () => {
   };
 };
 
+/**
+ * Replaces the current URL in browser history to remove sensitive parameters.
+ *
+ * SECURITY NOTE: While this removes sensitive tokens from the URL bar and prevents
+ * them from appearing in subsequent history entries, the original URL with tokens
+ * may still briefly appear in browser history before this replacement occurs.
+ * This is a best-effort mitigation; the referrer policy ("no-referrer" in page.tsx)
+ * provides additional protection against token leakage to external sites.
+ */
 const replaceUrl = (pathname: string, search: string, hash: string) => {
   const nextUrl = `${pathname}${search ? `?${search}` : ""}${hash}`;
   const currentUrl = `${window.location.pathname}${window.location.search}${window.location.hash}`;

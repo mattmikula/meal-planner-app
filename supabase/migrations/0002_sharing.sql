@@ -113,6 +113,10 @@ create policy "Users can manage their own settings"
   with check (user_id = auth.uid());
 
 -- Household invites: members can view invites for their households
+-- NOTE: This policy allows all active household members to view invite metadata including
+-- token_hash. The token_hash is a SHA-256 hash, so knowing it does not allow accepting
+-- the invite (the original token is required). If stricter access is needed (e.g., only
+-- owners can see invites), modify this policy to check household_members.role = 'owner'.
 create policy "Household members can view invites"
   on household_invites for select
   using (
@@ -198,6 +202,9 @@ begin
 
     -- Ensure all existing auth users get a household, even if they have no meals/plans yet.
     -- This prevents issues when users without existing data try to create content later.
+    -- NOTE: This includes ALL users in auth.users regardless of confirmation status.
+    -- For most deployments this is acceptable since unconfirmed users won't have data.
+    -- If you need to exclude unconfirmed/inactive users, add a filter on email_confirmed_at.
     insert into user_households (user_id, household_id)
     select id, gen_random_uuid()
     from auth.users
@@ -410,6 +417,10 @@ begin
       values (invite_record.household_id, v_user_id, 'member', 'active')
       returning id into new_member_id;
     exception
+      -- Handle race condition: another concurrent request may have already inserted
+      -- a membership for this user. The "for update skip locked" on the invite row
+      -- prevents most races, but this catch handles edge cases where two different
+      -- invites for the same household are accepted simultaneously.
       when unique_violation then
         return query select null::uuid, null::uuid, 'User already belongs to this household.', 409;
         return;
@@ -421,15 +432,16 @@ begin
       accepted_by = v_user_id
   where id = invite_record.id;
 
-  -- Automatically switch user's current household to the newly joined one.
-  -- WARNING: This unconditionally changes the user's context, which may disrupt
-  -- their workflow if they were actively using a different household.
-  -- TODO: Make this optional or prompt the user to switch.
+  -- Set user's current household to the newly joined one only if they don't
+  -- already have an active household selected. This avoids unexpectedly
+  -- disrupting their workflow while still initializing the setting for new
+  -- users or users without a current household.
   insert into user_household_settings (user_id, current_household_id)
   values (v_user_id, invite_record.household_id)
   on conflict (user_id) do update
     set current_household_id = excluded.current_household_id,
-        updated_at = now();
+        updated_at = now()
+    where user_household_settings.current_household_id is null;
 
   return query select invite_record.household_id, new_member_id, null::text, null::int;
 end;

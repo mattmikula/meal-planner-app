@@ -7,14 +7,24 @@ const authMocks = vi.hoisted(() => ({
   setAuthCookies: vi.fn()
 }));
 
-const householdMocks = vi.hoisted(() => ({
-  ensureHouseholdContext: vi.fn(),
-  createInviteToken: vi.fn(),
-  buildInviteExpiry: vi.fn(),
-  buildInviteUrl: vi.fn(),
-  fetchHouseholdMembership: vi.fn(),
-  hashInviteToken: vi.fn()
-}));
+const householdMocks = vi.hoisted(() => {
+  class InviteUrlConfigError extends Error {
+    constructor(message: string) {
+      super(message);
+      this.name = "InviteUrlConfigError";
+    }
+  }
+
+  return {
+    ensureHouseholdContext: vi.fn(),
+    createInviteToken: vi.fn(),
+    buildInviteExpiry: vi.fn(),
+    buildInviteUrl: vi.fn(),
+    fetchHouseholdMembership: vi.fn(),
+    hashInviteToken: vi.fn(),
+    InviteUrlConfigError
+  };
+});
 
 const supabaseMocks = vi.hoisted(() => ({
   createServerSupabaseClient: vi.fn()
@@ -216,12 +226,14 @@ describe("POST /api/household/invites", () => {
     authMocks.requireApiUser.mockResolvedValue({ userId: "user-1", email: "test@example.com" });
     householdMocks.ensureHouseholdContext.mockResolvedValue(householdContext);
     householdMocks.createInviteToken.mockReturnValue({ token: "token-123", tokenHash: "hash-123" });
-    householdMocks.buildInviteUrl.mockReturnValue(null);
+    householdMocks.buildInviteUrl.mockImplementation(() => {
+      throw new householdMocks.InviteUrlConfigError("INVITE_ACCEPT_URL_BASE not configured");
+    });
 
     const response = await createInvite(createInviteRequest({ email: "ada@example.com" }));
 
     expect(response.status).toBe(500);
-    expect(await response.json()).toEqual({ error: "Missing invite URL configuration." });
+    expect(await response.json()).toEqual({ error: "Invite URL configuration is missing or invalid." });
   });
 });
 

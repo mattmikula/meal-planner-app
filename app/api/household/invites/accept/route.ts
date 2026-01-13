@@ -21,15 +21,22 @@ type InviteAcceptResult = {
   error_status: number | null;
 };
 
-const normalizeToken = (payload: AcceptPayload): string | null | "whitespace" => {
+type TokenValidationResult =
+  | { valid: true; token: string }
+  | { valid: false; error: "missing" | "whitespace" };
+
+const normalizeToken = (payload: AcceptPayload): TokenValidationResult => {
   if (typeof payload.token !== "string") {
-    return null;
+    return { valid: false, error: "missing" };
   }
   const trimmed = payload.token.trim();
   if (!trimmed && payload.token.length > 0) {
-    return "whitespace";
+    return { valid: false, error: "whitespace" };
   }
-  return trimmed || null;
+  if (!trimmed) {
+    return { valid: false, error: "missing" };
+  }
+  return { valid: true, token: trimmed };
 };
 
 async function parsePayload(request: Request): Promise<AcceptPayload | null> {
@@ -87,14 +94,17 @@ export async function POST(request: Request) {
     return jsonError("Invalid request body.", 400);
   }
 
-  const token = normalizeToken(payload);
-  if (!token) {
+  const tokenResult = normalizeToken(payload);
+  if (!tokenResult.valid) {
+    if (tokenResult.error === "whitespace") {
+      return jsonError("Token cannot be empty or whitespace.", 400);
+    }
     return jsonError("Token is required.", 400);
   }
-  if (token === "whitespace") {
-    return jsonError("Token cannot be empty or whitespace.", 400);
-  }
 
+  // Note: Email normalization also happens in the database stored procedure
+  // (accept_household_invite). Both use lowercase normalization. If either
+  // implementation changes, ensure they remain consistent to avoid mismatches.
   const email = normalizeEmail(authResult.email);
   if (!email) {
     return jsonError("User email is required.", 400);
@@ -103,7 +113,7 @@ export async function POST(request: Request) {
   const supabase = createServerSupabaseClient();
 
   try {
-    const tokenHash = hashInviteToken(token);
+    const tokenHash = hashInviteToken(tokenResult.token);
     const result = await acceptInvite(
       supabase,
       tokenHash

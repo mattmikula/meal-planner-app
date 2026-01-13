@@ -17,8 +17,20 @@ type AuditRow = {
   summary: Record<string, unknown>;
 };
 
-const parseLimit = (limitParam: string | null) =>
-  Math.min(Math.max(Number.parseInt(limitParam ?? "50", 10) || 50, 1), 100);
+/**
+ * Parses and clamps the limit parameter to a safe range [1, 100].
+ * Returns 50 as the default if the parameter is missing or invalid (NaN).
+ */
+const parseLimit = (limitParam: string | null): number => {
+  const DEFAULT_LIMIT = 50;
+  const MIN_LIMIT = 1;
+  const MAX_LIMIT = 100;
+
+  const parsed = Number.parseInt(limitParam ?? "", 10);
+  const value = Number.isNaN(parsed) ? DEFAULT_LIMIT : parsed;
+
+  return Math.min(Math.max(value, MIN_LIMIT), MAX_LIMIT);
+};
 
 const parseEntity = (entity: string | null) => {
   if (!entity) {

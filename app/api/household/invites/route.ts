@@ -6,7 +6,8 @@ import {
   buildInviteExpiry,
   buildInviteUrl,
   createInviteToken,
-  ensureHouseholdContext
+  ensureHouseholdContext,
+  InviteUrlConfigError
 } from "@/lib/household/server";
 import { createServerSupabaseClient } from "@/lib/supabase/server";
 
@@ -79,10 +80,8 @@ export async function POST(request: Request) {
   try {
     const context = await ensureHouseholdContext(supabase, authResult.userId);
     const { token, tokenHash } = createInviteToken();
+    // buildInviteUrl throws InviteUrlConfigError if INVITE_ACCEPT_URL_BASE is not configured
     const inviteUrl = buildInviteUrl(token);
-    if (!inviteUrl) {
-      return jsonError("Missing invite URL configuration.", 500);
-    }
     const expiresAt = buildInviteExpiry();
 
     const inviteId = await insertInvite(
@@ -99,6 +98,10 @@ export async function POST(request: Request) {
 
     return response;
   } catch (error) {
+    // Return a clearer error message for configuration issues
+    if (error instanceof InviteUrlConfigError) {
+      return jsonError("Invite URL configuration is missing or invalid.", 500);
+    }
     const message = error instanceof Error ? error.message : "Unable to create invite.";
     return jsonError(message, 500);
   }

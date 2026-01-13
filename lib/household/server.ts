@@ -79,6 +79,13 @@ const VALIDATED_INVITE_BASE_URL = (() => {
   }
 })();
 
+export class InviteUrlConfigError extends Error {
+  constructor(message: string) {
+    super(message);
+    this.name = "InviteUrlConfigError";
+  }
+}
+
 /**
  * Builds an invite URL with the token as a query parameter.
  *
@@ -91,11 +98,15 @@ const VALIDATED_INVITE_BASE_URL = (() => {
  * but it is only a mitigation and does not replace the need for secure transport and handling.
  *
  * @param token - The raw invite token to include in the URL
- * @returns The complete invite URL, or null if INVITE_ACCEPT_URL_BASE is not configured or invalid
+ * @returns The complete invite URL
+ * @throws {InviteUrlConfigError} If INVITE_ACCEPT_URL_BASE is not configured or invalid
  */
-export function buildInviteUrl(token: string) {
+export function buildInviteUrl(token: string): string {
   if (!VALIDATED_INVITE_BASE_URL) {
-    return null;
+    throw new InviteUrlConfigError(
+      "INVITE_ACCEPT_URL_BASE environment variable is not configured or invalid. " +
+      "Set it to a valid URL (e.g., https://example.com/invite) to enable invite links."
+    );
   }
 
   const url = new URL(VALIDATED_INVITE_BASE_URL);
