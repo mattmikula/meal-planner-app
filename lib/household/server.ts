@@ -268,3 +268,97 @@ export async function ensureHouseholdContext(
 
   return context;
 }
+
+// Types for invite operations
+export type InviteRecord = {
+  id: string;
+  householdId: string;
+  email: string;
+  expiresAt: string;
+  acceptedAt: string | null;
+};
+
+type InviteRow = {
+  id: string;
+  household_id: string;
+  email: string;
+  expires_at: string;
+  accepted_at: string | null;
+};
+
+/**
+ * Fetches an invite by its token hash.
+ * Returns null if the invite doesn't exist.
+ */
+export async function fetchInviteByTokenHash(
+  supabase: SupabaseClient,
+  tokenHash: string
+): Promise<InviteRecord | null> {
+  const { data, error } = await supabase
+    .from("household_invites")
+    .select("id, household_id, email, expires_at, accepted_at")
+    .eq("token_hash", tokenHash)
+    .maybeSingle();
+
+  if (error) {
+    throw new Error(error.message);
+  }
+
+  if (!data) {
+    return null;
+  }
+
+  const row = data as InviteRow;
+  return {
+    id: row.id,
+    householdId: row.household_id,
+    email: row.email,
+    expiresAt: row.expires_at,
+    acceptedAt: row.accepted_at
+  };
+}
+
+// Error codes returned by accept_invite_atomic
+export type InviteAcceptErrorCode = "already_accepted" | "already_member";
+
+type AcceptInviteAtomicResult = {
+  member_id: string | null;
+  error_code: InviteAcceptErrorCode | null;
+};
+
+/**
+ * Atomically accepts an invite: creates/reactivates membership, marks invite as accepted.
+ * Business logic validation (email, expiry) should be done BEFORE calling this function.
+ * 
+ * @returns The new member ID on success, or an error code on failure
+ */
+export async function acceptInviteAtomic(
+  supabase: SupabaseClient,
+  inviteId: string,
+  householdId: string,
+  userId: string
+): Promise<{ memberId: string } | { errorCode: InviteAcceptErrorCode }> {
+  const { data, error } = await supabase
+    .rpc("accept_invite_atomic", {
+      p_invite_id: inviteId,
+      p_household_id: householdId,
+      p_user_id: userId
+    })
+    .single();
+
+  if (error) {
+    throw new Error(error.message);
+  }
+
+  const result = data as AcceptInviteAtomicResult;
+  
+  if (result.error_code) {
+    return { errorCode: result.error_code };
+  }
+
+  if (!result.member_id) {
+    throw new Error("Unable to accept invite.");
+  }
+
+  return { memberId: result.member_id };
+}

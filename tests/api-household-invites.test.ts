@@ -22,6 +22,8 @@ const householdMocks = vi.hoisted(() => {
     buildInviteUrl: vi.fn(),
     fetchHouseholdMembership: vi.fn(),
     hashInviteToken: vi.fn(),
+    fetchInviteByTokenHash: vi.fn(),
+    acceptInviteAtomic: vi.fn(),
     InviteUrlConfigError
   };
 });
@@ -256,15 +258,23 @@ describe("POST /api/household/invites", () => {
 });
 
 describe("POST /api/household/invites/accept", () => {
+  // Default valid invite for tests
+  const validInvite = {
+    id: "invite-1",
+    householdId: "household-1",
+    email: "ada@example.com",
+    expiresAt: new Date(Date.now() + 24 * 60 * 60 * 1000).toISOString(), // 24 hours from now
+    acceptedAt: null
+  };
+
   const setupAcceptInviteBase = () => {
     authMocks.requireApiUser.mockResolvedValue({
       userId: "user-1",
       email: "ada@example.com"
     });
     householdMocks.hashInviteToken.mockReturnValue("hash-abc");
-    const rpcMock = vi.fn();
-    supabaseMocks.createServerSupabaseClient.mockReturnValue({ rpc: rpcMock });
-    return rpcMock;
+    householdMocks.fetchInviteByTokenHash.mockResolvedValue(validInvite);
+    householdMocks.acceptInviteAtomic.mockResolvedValue({ memberId: "member-2" });
   };
 
   it("returns 400 when token is missing", async () => {
@@ -338,17 +348,7 @@ describe("POST /api/household/invites/accept", () => {
   });
 
   it("accepts a valid invite", async () => {
-    const rpcMock = setupAcceptInviteBase();
-    const rpcQuery = createQuery({
-      data: {
-        household_id: "household-1",
-        member_id: "member-2",
-        error_message: null,
-        error_status: null
-      },
-      error: null
-    });
-    rpcMock.mockReturnValue(rpcQuery);
+    setupAcceptInviteBase();
 
     const response = await acceptInvite(acceptInviteRequest({ token: "token-abc" }));
 
@@ -360,37 +360,20 @@ describe("POST /api/household/invites/accept", () => {
   });
 
   it("looks up invites by token hash", async () => {
-    const rpcMock = setupAcceptInviteBase();
-    const rpcQuery = createQuery({
-      data: {
-        household_id: "household-1",
-        member_id: "member-2",
-        error_message: null,
-        error_status: null
-      },
-      error: null
-    });
-    rpcMock.mockReturnValue(rpcQuery);
+    setupAcceptInviteBase();
 
     await acceptInvite(acceptInviteRequest({ token: "token-abc" }));
 
-    expect(rpcMock).toHaveBeenCalledWith("accept_household_invite", {
-      p_token_hash: "hash-abc"
-    });
+    expect(householdMocks.hashInviteToken).toHaveBeenCalledWith("token-abc");
+    expect(householdMocks.fetchInviteByTokenHash).toHaveBeenCalledWith(
+      expect.anything(),
+      "hash-abc"
+    );
   });
 
   it("rejects invites that cannot be found", async () => {
-    const rpcMock = setupAcceptInviteBase();
-    const rpcQuery = createQuery({
-      data: {
-        household_id: null,
-        member_id: null,
-        error_message: "Invalid or expired invite.",
-        error_status: 400
-      },
-      error: null
-    });
-    rpcMock.mockReturnValue(rpcQuery);
+    setupAcceptInviteBase();
+    householdMocks.fetchInviteByTokenHash.mockResolvedValue(null);
 
     const response = await acceptInvite(acceptInviteRequest({ token: "token-abc" }));
 
@@ -399,17 +382,11 @@ describe("POST /api/household/invites/accept", () => {
   });
 
   it("rejects already used invites", async () => {
-    const rpcMock = setupAcceptInviteBase();
-    const rpcQuery = createQuery({
-      data: {
-        household_id: null,
-        member_id: null,
-        error_message: "Invite already used.",
-        error_status: 409
-      },
-      error: null
+    setupAcceptInviteBase();
+    householdMocks.fetchInviteByTokenHash.mockResolvedValue({
+      ...validInvite,
+      acceptedAt: "2024-02-12T10:00:00Z"
     });
-    rpcMock.mockReturnValue(rpcQuery);
 
     const response = await acceptInvite(acceptInviteRequest({ token: "token-abc" }));
 
@@ -418,38 +395,23 @@ describe("POST /api/household/invites/accept", () => {
   });
 
   it("rejects invite for existing household members", async () => {
-    const rpcMock = setupAcceptInviteBase();
-    const rpcQuery = createQuery({
-      data: {
-        household_id: null,
-        member_id: null,
-        error_message: "User already belongs to this household.",
-        error_status: 409
-      },
-      error: null
-    });
-    rpcMock.mockReturnValue(rpcQuery);
+    setupAcceptInviteBase();
+    householdMocks.acceptInviteAtomic.mockResolvedValue({ errorCode: "already_member" });
 
     const response = await acceptInvite(acceptInviteRequest({ token: "token-abc" }));
 
     expect(response.status).toBe(409);
     expect(await response.json()).toEqual({
-      error: "User already belongs to this household."
+      error: "You are already a member of this household."
     });
   });
 
   it("rejects invite email mismatches", async () => {
-    const rpcMock = setupAcceptInviteBase();
-    const rpcQuery = createQuery({
-      data: {
-        household_id: null,
-        member_id: null,
-        error_message: "This invite was sent to a different email address than the one you're signed in with.",
-        error_status: 403
-      },
-      error: null
+    setupAcceptInviteBase();
+    householdMocks.fetchInviteByTokenHash.mockResolvedValue({
+      ...validInvite,
+      email: "other@example.com"
     });
-    rpcMock.mockReturnValue(rpcQuery);
 
     const response = await acceptInvite(acceptInviteRequest({ token: "token-abc" }));
 
@@ -458,17 +420,11 @@ describe("POST /api/household/invites/accept", () => {
   });
 
   it("rejects expired invites", async () => {
-    const rpcMock = setupAcceptInviteBase();
-    const rpcQuery = createQuery({
-      data: {
-        household_id: null,
-        member_id: null,
-        error_message: "Invite expired.",
-        error_status: 400
-      },
-      error: null
+    setupAcceptInviteBase();
+    householdMocks.fetchInviteByTokenHash.mockResolvedValue({
+      ...validInvite,
+      expiresAt: new Date(Date.now() - 1000).toISOString() // 1 second ago
     });
-    rpcMock.mockReturnValue(rpcQuery);
 
     const response = await acceptInvite(acceptInviteRequest({ token: "token-abc" }));
 
@@ -477,12 +433,8 @@ describe("POST /api/household/invites/accept", () => {
   });
 
   it("returns 500 when accepting invite fails", async () => {
-    const rpcMock = setupAcceptInviteBase();
-    const rpcQuery = createQuery({
-      data: null,
-      error: { message: "rpc failed" }
-    });
-    rpcMock.mockReturnValue(rpcQuery);
+    setupAcceptInviteBase();
+    householdMocks.acceptInviteAtomic.mockRejectedValue(new Error("rpc failed"));
 
     const response = await acceptInvite(acceptInviteRequest({ token: "token-abc" }));
 

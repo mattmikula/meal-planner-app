@@ -325,135 +325,93 @@ alter table plan_days
   alter column household_id set not null,
   alter column created_by set not null;
 
-create or replace function accept_household_invite(
-  p_token_hash text
+-- Minimal atomic function for invite acceptance.
+-- Business logic (email validation, expiry checks) should be handled in the API route.
+-- This function only handles the atomic database operations that must run in a transaction:
+--   1. Lock the invite row to prevent concurrent acceptance
+--   2. Create or reactivate household membership
+--   3. Mark invite as accepted
+--   4. Update user's current household setting
+--
+-- Returns error_code values:
+--   'already_accepted' - Invite was already used
+--   'already_member' - User is already an active member of this household
+--   null - Success (member_id will be set)
+create or replace function accept_invite_atomic(
+  p_invite_id uuid,
+  p_household_id uuid,
+  p_user_id uuid
 )
 returns table (
-  household_id uuid,
   member_id uuid,
-  error_message text,
-  error_status integer
+  error_code text
 )
 language plpgsql
 security definer
 set search_path = public
 as $$
 declare
-  invite_record household_invites%rowtype;
   new_member_id uuid;
   existing_member_id uuid;
   existing_member_status text;
-  v_user_id uuid;
-  v_user_email text;
+  invite_already_accepted boolean;
 begin
-  -- Get authenticated user from Supabase auth
-  v_user_id := auth.uid();
-  if v_user_id is null then
-    return query select null::uuid, null::uuid, 'Authentication required.', 401;
-    return;
-  end if;
-
-  -- Get user email from auth metadata
-  v_user_email := lower((auth.jwt() -> 'email')::text);
-  if v_user_email is null or v_user_email = '' then
-    return query select null::uuid, null::uuid, 'User email is required.', 400;
-    return;
-  end if;
-
-  -- Remove quotes from JSON string
-  v_user_email := trim(both '"' from v_user_email);
-
-  select * into invite_record
+  -- Lock invite row to prevent concurrent acceptance
+  select accepted_at is not null into invite_already_accepted
   from household_invites
-  where token_hash = p_token_hash
-  for update skip locked;
+  where id = p_invite_id
+  for update;
 
-  if not found then
-    -- Note: 'not found' could mean the invite doesn't exist OR another request is
-    -- currently processing this invite (skip locked). The latter is rare but possible.
-    return query select null::uuid, null::uuid, 'Invalid or expired invite. If you just tried accepting, please wait a moment and try again.', 400;
+  if invite_already_accepted then
+    return query select null::uuid, 'already_accepted'::text;
     return;
   end if;
 
-  if invite_record.accepted_at is not null then
-    return query select null::uuid, null::uuid, 'Invite already used.', 409;
-    return;
-  end if;
-
-  if invite_record.expires_at <= now() then
-    return query select null::uuid, null::uuid, 'Invite expired.', 400;
-    return;
-  end if;
-
-  -- Email comparison: both stored and user emails are lowercase
-  if lower(invite_record.email) <> v_user_email then
-    return query select null::uuid, null::uuid, 'This invite was sent to a different email address than the one you''re signed in with.', 403;
-    return;
-  end if;
-
+  -- Check existing membership (with lock to prevent race conditions)
   select id, status into existing_member_id, existing_member_status
   from household_members
-  where household_id = invite_record.household_id
-    and user_id = v_user_id
-  limit 1;
+  where household_id = p_household_id
+    and user_id = p_user_id
+  for update;
+
+  if found and existing_member_status = 'active' then
+    return query select null::uuid, 'already_member'::text;
+    return;
+  end if;
 
   if found then
-    if existing_member_status = 'active' then
-      return query select null::uuid, null::uuid, 'User already belongs to this household.', 409;
-      return;
-    end if;
-
-    begin
-      update household_members
-      set status = 'active',
-          updated_at = now()
-      where id = existing_member_id
-      returning id into new_member_id;
-
-      -- Handle race condition: if update somehow failed and row was deleted/changed
-      if not found then
-        insert into household_members (household_id, user_id, role, status)
-        values (invite_record.household_id, v_user_id, 'member', 'active')
-        returning id into new_member_id;
-      end if;
-    exception
-      when unique_violation then
-        return query select null::uuid, null::uuid, 'User already belongs to this household.', 409;
-        return;
-    end;
+    -- Reactivate inactive member
+    update household_members
+    set status = 'active', updated_at = now()
+    where id = existing_member_id
+    returning id into new_member_id;
   else
+    -- Insert new member
     begin
       insert into household_members (household_id, user_id, role, status)
-      values (invite_record.household_id, v_user_id, 'member', 'active')
+      values (p_household_id, p_user_id, 'member', 'active')
       returning id into new_member_id;
-    exception
-      -- Handle race condition: another concurrent request may have already inserted
-      -- a membership for this user. The "for update skip locked" on the invite row
-      -- prevents most races, but this catch handles edge cases where two different
-      -- invites for the same household are accepted simultaneously.
-      when unique_violation then
-        return query select null::uuid, null::uuid, 'User already belongs to this household.', 409;
-        return;
+    exception when unique_violation then
+      -- Race condition: another request inserted membership
+      return query select null::uuid, 'already_member'::text;
+      return;
     end;
   end if;
 
+  -- Mark invite as accepted
   update household_invites
-  set accepted_at = now(),
-      accepted_by = v_user_id
-  where id = invite_record.id;
+  set accepted_at = now(), accepted_by = p_user_id
+  where id = p_invite_id;
 
-  -- Set user's current household to the newly joined one only if they don't
-  -- already have an active household selected. This avoids unexpectedly
-  -- disrupting their workflow while still initializing the setting for new
-  -- users or users without a current household.
+  -- Update user's current household if not already set
   insert into user_household_settings (user_id, current_household_id)
-  values (v_user_id, invite_record.household_id)
+  values (p_user_id, p_household_id)
   on conflict (user_id) do update
     set current_household_id = excluded.current_household_id,
         updated_at = now()
     where user_household_settings.current_household_id is null;
 
-  return query select invite_record.household_id, new_member_id, null::text, null::int;
+  return query select new_member_id, null::text;
 end;
 $$;
 

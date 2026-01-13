@@ -2,23 +2,16 @@ import { NextResponse } from "next/server";
 
 import { applyAuthCookies, jsonError, normalizeEmail } from "@/lib/api/helpers";
 import { requireApiUser } from "@/lib/auth/server";
-import { hashInviteToken } from "@/lib/household/server";
+import {
+  acceptInviteAtomic,
+  fetchInviteByTokenHash,
+  hashInviteToken,
+  type InviteAcceptErrorCode
+} from "@/lib/household/server";
 import { createServerSupabaseClient } from "@/lib/supabase/server";
 
 type AcceptPayload = {
   token?: string;
-};
-
-type InviteError = {
-  message: string;
-  status: number;
-};
-
-type InviteAcceptResult = {
-  household_id: string | null;
-  member_id: string | null;
-  error_message: string | null;
-  error_status: number | null;
 };
 
 type TokenValidationResult =
@@ -47,40 +40,16 @@ async function parsePayload(request: Request): Promise<AcceptPayload | null> {
   }
 }
 
-async function acceptInvite(
-  supabase: ReturnType<typeof createServerSupabaseClient>,
-  tokenHash: string
-): Promise<{ householdId: string; memberId: string } | InviteError> {
-  const { data, error } = await supabase
-    .rpc("accept_household_invite", {
-      p_token_hash: tokenHash
-    })
-    .single();
-
-  if (error) {
-    throw new Error(error.message);
+/**
+ * Maps atomic error codes to user-friendly messages and HTTP status codes.
+ */
+function mapErrorCode(errorCode: InviteAcceptErrorCode): { message: string; status: number } {
+  switch (errorCode) {
+    case "already_accepted":
+      return { message: "Invite already used.", status: 409 };
+    case "already_member":
+      return { message: "You are already a member of this household.", status: 409 };
   }
-
-  if (!data) {
-    throw new Error("Unable to accept invite.");
-  }
-
-  const result = data as InviteAcceptResult;
-  if (result.error_message) {
-    return {
-      message: result.error_message,
-      status: result.error_status ?? 500
-    };
-  }
-
-  if (!result.household_id || !result.member_id) {
-    throw new Error("Unable to accept invite.");
-  }
-
-  return {
-    householdId: result.household_id,
-    memberId: result.member_id
-  };
 }
 
 export async function POST(request: Request) {
@@ -102,11 +71,8 @@ export async function POST(request: Request) {
     return jsonError("Token is required.", 400);
   }
 
-  // Note: Email normalization also happens in the database stored procedure
-  // (accept_household_invite). Both use lowercase normalization. If either
-  // implementation changes, ensure they remain consistent to avoid mismatches.
-  const email = normalizeEmail(authResult.email);
-  if (!email) {
+  const userEmail = normalizeEmail(authResult.email);
+  if (!userEmail) {
     return jsonError("User email is required.", 400);
   }
 
@@ -114,17 +80,45 @@ export async function POST(request: Request) {
 
   try {
     const tokenHash = hashInviteToken(tokenResult.token);
-    const result = await acceptInvite(
+
+    // Fetch invite and validate in application code (per AGENTS.md guidelines)
+    const invite = await fetchInviteByTokenHash(supabase, tokenHash);
+
+    if (!invite) {
+      return jsonError("Invalid or expired invite.", 400);
+    }
+
+    if (invite.acceptedAt) {
+      return jsonError("Invite already used.", 409);
+    }
+
+    if (new Date(invite.expiresAt) <= new Date()) {
+      return jsonError("Invite expired.", 400);
+    }
+
+    // Email comparison - both should be lowercase after normalization
+    if (invite.email.toLowerCase() !== userEmail.toLowerCase()) {
+      return jsonError(
+        "This invite was sent to a different email address than the one you're signed in with.",
+        403
+      );
+    }
+
+    // Call minimal atomic function for database operations
+    const result = await acceptInviteAtomic(
       supabase,
-      tokenHash
+      invite.id,
+      invite.householdId,
+      authResult.userId
     );
 
-    if ("status" in result) {
-      return jsonError(result.message, result.status);
+    if ("errorCode" in result) {
+      const { message, status } = mapErrorCode(result.errorCode);
+      return jsonError(message, status);
     }
 
     const response = NextResponse.json({
-      householdId: result.householdId,
+      householdId: invite.householdId,
       memberId: result.memberId
     });
     applyAuthCookies(response, authResult.session, request);
