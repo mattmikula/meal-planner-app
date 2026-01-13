@@ -53,11 +53,26 @@ export function createInviteToken() {
   };
 }
 
+/**
+ * Calculates the expiry time for an invite based on INVITE_TTL_HOURS.
+ * Accepts an optional `now` parameter for testability.
+ * @param now - The current time (defaults to now). Used for testing.
+ */
 export function buildInviteExpiry(now: Date = new Date()) {
   const expiresAt = new Date(now.getTime() + INVITE_TTL_HOURS * 60 * 60 * 1000);
   return expiresAt.toISOString();
 }
 
+/**
+ * Builds an invite URL with the token as a query parameter.
+ * 
+ * WARNING: Invite tokens in URLs can be logged by proxies, browsers, and analytics tools.
+ * Users should be warned not to share screenshots of invite URLs.
+ * Invite links should be treated as sensitive and expire after INVITE_TTL_HOURS.
+ * 
+ * @param token - The raw invite token to include in the URL
+ * @returns The complete invite URL, or null if INVITE_ACCEPT_URL_BASE is not configured
+ */
 export function buildInviteUrl(token: string) {
   const baseUrl = process.env.INVITE_ACCEPT_URL_BASE?.trim();
   if (!baseUrl) {

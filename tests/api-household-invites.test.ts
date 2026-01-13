@@ -149,7 +149,7 @@ describe("POST /api/household/invites", () => {
     });
   });
 
-  it("writes invite record with normalized email", async () => {
+  it("writes invite record with normalized email (lowercase)", async () => {
     const { insertQuery } = await setupCreateInviteSuccess();
 
     expect(insertQuery.insert).toHaveBeenCalledWith(
@@ -317,9 +317,7 @@ describe("POST /api/household/invites/accept", () => {
     await acceptInvite(acceptInviteRequest({ token: "token-abc" }));
 
     expect(rpcMock).toHaveBeenCalledWith("accept_household_invite", {
-      p_token_hash: "hash-abc",
-      p_user_id: "user-1",
-      p_email: "ada@example.com"
+      p_token_hash: "hash-abc"
     });
   });
 

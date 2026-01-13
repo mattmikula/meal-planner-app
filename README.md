@@ -12,7 +12,9 @@ Current state: sharing APIs and invite flow are implemented alongside auth + hea
    - Copy `.env.local.example` to `.env.local`
    - Fill in Supabase URL, publishable key, and service role key
 3. Apply the schema:
-   - Run the SQL migrations in `supabase/migrations` (SQL editor or CLI)
+   - Run the SQL migrations in `supabase/migrations` in order (SQL editor or CLI):
+     1. `0001_init.sql`
+     2. `0002_sharing.sql`
 4. Run the app:
    `pnpm dev`
 

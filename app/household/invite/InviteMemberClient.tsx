@@ -120,14 +120,29 @@ export default function InviteMemberClient() {
       return;
     }
 
+    if (!navigator.clipboard?.writeText) {
+      setStatus(
+        "Your browser does not support automatic copying. Please copy the invite link manually."
+      );
+      return;
+    }
+
     try {
-      if (!navigator.clipboard?.writeText) {
-        throw new Error("Clipboard API unavailable.");
-      }
       await navigator.clipboard.writeText(inviteUrl);
       setStatus("Invite link copied to your clipboard.");
-    } catch {
-      setStatus("Unable to copy the invite link. Please copy it manually.");
+    } catch (error) {
+      if (
+        error instanceof DOMException &&
+        (error.name === "NotAllowedError" || error.name === "SecurityError")
+      ) {
+        setStatus(
+          "Permission to access the clipboard was denied. Please allow clipboard access or copy the invite link manually."
+        );
+      } else {
+        setStatus(
+          "Unable to copy the invite link automatically. Please copy it manually."
+        );
+      }
     }
   };
 

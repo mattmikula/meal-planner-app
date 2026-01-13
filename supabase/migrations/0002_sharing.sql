@@ -176,13 +176,19 @@ begin
       household_id uuid not null
     );
 
-    insert into user_households (user_id, household_id)
-    select user_id, gen_random_uuid()
-    from (
-      select user_id from meals
-      union
-      select user_id from plans
-    ) users;
+    -- Only attempt to populate user_households if meals or plans tables exist
+    if exists (
+      select 1 from information_schema.tables
+      where table_name in ('meals', 'plans')
+    ) then
+      insert into user_households (user_id, household_id)
+      select user_id, gen_random_uuid()
+      from (
+        select user_id from meals where exists (select 1 from information_schema.tables where table_name = 'meals')
+        union
+        select user_id from plans where exists (select 1 from information_schema.tables where table_name = 'plans')
+      ) users;
+    end if;
 
     insert into households (id, created_by)
     select household_id, user_id
@@ -280,9 +286,7 @@ alter table plan_days
   alter column created_by set not null;
 
 create or replace function accept_household_invite(
-  p_token_hash text,
-  p_user_id uuid,
-  p_email text
+  p_token_hash text
 )
 returns table (
   household_id uuid,
@@ -292,13 +296,33 @@ returns table (
 )
 language plpgsql
 security definer
+set search_path = public
 as $$
 declare
   invite_record household_invites%rowtype;
   new_member_id uuid;
   existing_member_id uuid;
   existing_member_status text;
+  v_user_id uuid;
+  v_user_email text;
 begin
+  -- Get authenticated user from Supabase auth
+  v_user_id := auth.uid();
+  if v_user_id is null then
+    return query select null::uuid, null::uuid, 'Authentication required.', 401;
+    return;
+  end if;
+
+  -- Get user email from auth metadata
+  v_user_email := lower((auth.jwt() -> 'email')::text);
+  if v_user_email is null or v_user_email = '' then
+    return query select null::uuid, null::uuid, 'User email is required.', 400;
+    return;
+  end if;
+
+  -- Remove quotes from JSON string
+  v_user_email := trim(both '"' from v_user_email);
+
   select * into invite_record
   from household_invites
   where token_hash = p_token_hash
@@ -319,15 +343,16 @@ begin
     return;
   end if;
 
-  if lower(invite_record.email) <> lower(p_email) then
-    return query select null::uuid, null::uuid, 'Invite email does not match.', 403;
+  -- Email comparison: both stored and user emails are lowercase
+  if lower(invite_record.email) <> v_user_email then
+    return query select null::uuid, null::uuid, 'This invite was sent to a different email address than the one you''re signed in with.', 403;
     return;
   end if;
 
   select id, status into existing_member_id, existing_member_status
   from household_members
   where household_id = invite_record.household_id
-    and user_id = p_user_id
+    and user_id = v_user_id
   limit 1;
 
   if found then
@@ -344,7 +369,7 @@ begin
   else
     begin
       insert into household_members (household_id, user_id, role, status)
-      values (invite_record.household_id, p_user_id, 'member', 'active')
+      values (invite_record.household_id, v_user_id, 'member', 'active')
       returning id into new_member_id;
     exception
       when unique_violation then
@@ -355,12 +380,15 @@ begin
 
   update household_invites
   set accepted_at = now(),
-      accepted_by = p_user_id
+      accepted_by = v_user_id
   where id = invite_record.id;
 
+  -- Update current household to the newly joined one
   insert into user_household_settings (user_id, current_household_id)
-  values (p_user_id, invite_record.household_id)
-  on conflict (user_id) do nothing;
+  values (v_user_id, invite_record.household_id)
+  on conflict (user_id) do update
+    set current_household_id = excluded.current_household_id,
+        updated_at = now();
 
   return query select invite_record.household_id, new_member_id, null::text, null::int;
 end;

@@ -9,7 +9,8 @@ import { getApiErrorMessage } from "@/lib/api/errors";
 type InviteStatus = "idle" | "loading" | "accepted" | "needs-auth" | "error";
 type InviteResult = { status: InviteStatus; message: string | null };
 
-const SENSITIVE_KEYS = ["access_token", "refresh_token", "token", "invite_token"];
+// Supabase OAuth tokens and our invite token that should be removed from URLs
+const SENSITIVE_KEYS = ["access_token", "refresh_token", "invite_token"];
 
 const MISSING_TOKEN_MESSAGE =
   "Invite token is missing. Please open the invite link again.";
@@ -70,6 +71,10 @@ const readInviteParams = () => {
 
 const replaceUrl = (pathname: string, search: string, hash: string) => {
   const nextUrl = `${pathname}${search ? `?${search}` : ""}${hash}`;
+  const currentUrl = `${window.location.pathname}${window.location.search}${window.location.hash}`;
+  if (nextUrl === currentUrl) {
+    return;
+  }
   window.history.replaceState(null, "", nextUrl);
 };
 

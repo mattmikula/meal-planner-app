@@ -38,15 +38,11 @@ async function parsePayload(request: Request): Promise<AcceptPayload | null> {
 
 async function acceptInvite(
   supabase: ReturnType<typeof createServerSupabaseClient>,
-  tokenHash: string,
-  userId: string,
-  email: string
+  tokenHash: string
 ): Promise<{ householdId: string; memberId: string } | InviteError> {
   const { data, error } = await supabase
     .rpc("accept_household_invite", {
-      p_token_hash: tokenHash,
-      p_user_id: userId,
-      p_email: email
+      p_token_hash: tokenHash
     })
     .single();
 
@@ -103,9 +99,7 @@ export async function POST(request: Request) {
     const tokenHash = hashInviteToken(token);
     const result = await acceptInvite(
       supabase,
-      tokenHash,
-      authResult.userId,
-      email
+      tokenHash
     );
 
     if ("status" in result) {

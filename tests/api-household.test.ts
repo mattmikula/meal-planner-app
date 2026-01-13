@@ -73,7 +73,7 @@ describe("GET /api/household", () => {
     authMocks.requireApiUser.mockResolvedValue({ response: unauthorizedResponse });
 
     const response = await getHousehold(
-      new Request("http://localhost/api/household")
+      new Request("https://localhost/api/household")
     );
 
     expect(response).toBe(unauthorizedResponse);
