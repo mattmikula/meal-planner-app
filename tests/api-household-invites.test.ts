@@ -141,6 +141,24 @@ describe("POST /api/household/invites", () => {
     expect(await response.json()).toEqual({ error: "Email must be a string." });
   });
 
+  it("returns 400 when email format is invalid", async () => {
+    authMocks.requireApiUser.mockResolvedValue({ userId: "user-1", email: "test@example.com" });
+
+    const response = await createInvite(createInviteRequest({ email: "not-an-email" }));
+
+    expect(response.status).toBe(400);
+    expect(await response.json()).toEqual({ error: "Invalid email format." });
+  });
+
+  it("returns 400 when email is missing domain", async () => {
+    authMocks.requireApiUser.mockResolvedValue({ userId: "user-1", email: "test@example.com" });
+
+    const response = await createInvite(createInviteRequest({ email: "test@" }));
+
+    expect(response.status).toBe(400);
+    expect(await response.json()).toEqual({ error: "Invalid email format." });
+  });
+
   it("does not touch the database when email is missing", async () => {
     authMocks.requireApiUser.mockResolvedValue({ userId: "user-1", email: "test@example.com" });
 

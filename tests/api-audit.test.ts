@@ -126,7 +126,7 @@ describe("GET /api/audit", () => {
   it("clamps limit to 1 when value is negative", async () => {
     const { query } = await setupAuditResponse({
       url: "http://localhost/api/audit?limit=-5",
-      data: null
+      data: []
     });
 
     expect(query.limit).toHaveBeenCalledWith(1);

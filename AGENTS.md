@@ -48,6 +48,12 @@
 - When adding new features, update backend routes first, then build UI clients around those APIs.
 - Mark server-only modules with `import "server-only"` when they must never ship to the client (secrets, service role keys, Node-only APIs).
 
+## Database & Migrations
+- Prefer keeping business logic in application code (API routes, `lib/`) rather than database functions or triggers.
+- This reduces the need for schema migrations and makes business logic changes easier to test and deploy.
+- Use database functions sparingly—primarily for atomic operations that must run in a single transaction or for security boundaries (e.g., `security definer` functions that enforce auth checks).
+- Keep migrations focused on schema changes (tables, columns, indexes, RLS policies) rather than procedural logic.
+
 ## Testing Guidelines
 - Tests use Vitest and live in `tests/` with `*.test.ts` naming.
 - Aim to cover API routes and edge cases (auth failures, invalid inputs).

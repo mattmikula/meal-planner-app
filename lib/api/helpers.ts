@@ -16,9 +16,11 @@ export function jsonError(message: string, status: number) {
  * If the X-Forwarded-Proto header is provided, it is used as the primary signal.
  * Otherwise, the URL protocol is used as a fallback.
  * 
- * Security Note: In production, ensure your reverse proxy (nginx, ALB, etc.) strips
- * untrusted X-Forwarded-Proto headers from client requests. Otherwise, clients could
- * force insecure cookie settings by sending a forged header.
+ * Security Note: This function trusts the provided `forwardedProto` value. Only pass
+ * a value derived from the X-Forwarded-Proto header if your app is behind a trusted
+ * reverse proxy (nginx, ALB, etc.) that strips or overwrites any client-provided
+ * X-Forwarded-Proto header. If you cannot guarantee this, call this function without
+ * a forwardedProto value so that only the URL protocol is used.
  */
 export function isSecureRequest(
   requestUrl: string,
@@ -35,6 +37,10 @@ export function isSecureRequest(
     }
     // Header is present but has an unexpected value; treat as insecure rather than
     // falling back to the URL protocol to avoid ambiguous/misleading behavior.
+    console.warn(
+      `Unexpected X-Forwarded-Proto value "${forwardedProto}" (normalized: "${proto}"); treating request as insecure. ` +
+      "Check your reverse proxy or load balancer configuration."
+    );
     return false;
   }
 

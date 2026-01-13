@@ -94,12 +94,20 @@ create policy "Users can view household members"
   );
 
 -- Household members: allow management through service role only (via RPC functions)
--- NOTE: While this policy allows service_role full privileges, member changes resulting
--- from invite workflows are intentionally *not* duplicated in audit_log. Instead, they
--- are tracked via household_invites.accepted_by/accepted_at, which records who accepted
--- an invite and when. The audit_log table is reserved for explicit, user-initiated domain
--- operations (recipes, meals, plans, etc.), whereas invite acceptance is treated as a
--- system-managed workflow step derived from those invite records.
+--
+-- AUDIT TRAIL DESIGN:
+-- Member changes from invite workflows are intentionally NOT duplicated in audit_log.
+--   • Source of truth: Invite acceptances (including who accepted and when) are tracked
+--     via household_invites.accepted_by / household_invites.accepted_at. This provides
+--     a complete history of membership changes that originate from the invite flow.
+--   • Rationale: The audit_log table is reserved for explicit, user-initiated domain
+--     operations (recipes, meals, plans, etc.). Invite acceptance is treated as a
+--     system-managed workflow step derived from those invite records, so writing a
+--     second, largely redundant event into audit_log was intentionally avoided to
+--     reduce noise and duplication in the primary domain audit stream.
+--   • Security/compliance: For environments that require a single consolidated audit
+--     trail of all security-sensitive events, consider adding an explicit insert into
+--     audit_log (e.g., via a trigger or RPC) whenever an invite is accepted.
 create policy "System can manage household members"
   on household_members for all
   to service_role
@@ -200,15 +208,15 @@ begin
       ) users;
     end if;
 
-    -- Ensure all existing auth users get a household, even if they have no meals/plans yet.
+    -- Ensure all existing confirmed auth users get a household, even if they have no meals/plans yet.
     -- This prevents issues when users without existing data try to create content later.
-    -- NOTE: This includes ALL users in auth.users regardless of confirmation status.
-    -- For most deployments this is acceptable since unconfirmed users won't have data.
-    -- If you need to exclude unconfirmed/inactive users, add a filter on email_confirmed_at.
+    -- NOTE: Only includes confirmed users (email_confirmed_at IS NOT NULL) to avoid creating
+    -- households for spam signups or abandoned accounts.
     insert into user_households (user_id, household_id)
     select id, gen_random_uuid()
     from auth.users
     where id not in (select user_id from user_households)
+      and email_confirmed_at is not null
     on conflict (user_id) do nothing;
 
     insert into households (id, created_by)
@@ -361,7 +369,9 @@ begin
   for update skip locked;
 
   if not found then
-    return query select null::uuid, null::uuid, 'Invalid or expired invite.', 400;
+    -- Note: 'not found' could mean the invite doesn't exist OR another request is
+    -- currently processing this invite (skip locked). The latter is rare but possible.
+    return query select null::uuid, null::uuid, 'Invalid or expired invite. If you just tried accepting, please wait a moment and try again.', 400;
     return;
   end if;
 

@@ -94,8 +94,14 @@ export class InviteUrlConfigError extends Error {
  * trusted end-to-end encrypted messaging) and never via plaintext or untrusted channels.
  * Users and UIs should clearly warn people not to share screenshots or screen recordings
  * that include the invite URL, since this exposes the raw token.
+ *
  * The 48-hour expiry (INVITE_TTL_HOURS) limits the window of exposure if a link is leaked,
  * but it is only a mitigation and does not replace the need for secure transport and handling.
+ * Invite-acceptance endpoints SHOULD implement additional controls such as:
+ *   - rate limiting per IP/user and per invite token,
+ *   - tracking and limiting failed invite-acceptance attempts per token, and
+ *   - allowing users or the system to revoke specific invites before they expire.
+ * These measures help detect and reduce abuse if an invite URL is leaked during its TTL.
  *
  * @param token - The raw invite token to include in the URL
  * @returns The complete invite URL

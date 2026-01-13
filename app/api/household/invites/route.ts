@@ -75,6 +75,11 @@ export async function POST(request: Request) {
     return jsonError("Email is required.", 400);
   }
 
+  // Basic email format validation (must contain @ and a domain)
+  if (!email.includes("@") || !email.split("@")[1]?.includes(".")) {
+    return jsonError("Invalid email format.", 400);
+  }
+
   const supabase = createServerSupabaseClient();
 
   try {

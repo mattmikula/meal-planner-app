@@ -518,8 +518,10 @@ components:
           nullable: true
         role:
           type: string
+          enum: [owner, member]
         status:
           type: string
+          enum: [active, inactive]
 
     HouseholdMember:
       type: object
@@ -538,8 +540,10 @@ components:
           format: uuid
         role:
           type: string
+          enum: [owner, member]
         status:
           type: string
+          enum: [active, inactive]
         createdAt:
           type: string
           format: date-time
