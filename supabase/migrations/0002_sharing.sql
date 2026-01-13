@@ -39,6 +39,7 @@ create table if not exists household_invites (
 
 create unique index if not exists household_invites_token_hash_idx on household_invites(token_hash);
 create index if not exists household_invites_household_idx on household_invites(household_id);
+create index if not exists household_invites_email_idx on household_invites(email);
 
 create table if not exists audit_log (
   id uuid primary key default gen_random_uuid(),
@@ -154,6 +155,7 @@ create policy "System can create audit logs"
 -- One-time migration: establish mapping between existing users and their newly created households.
 -- This temporary table collects all users who have created meals or plans, then assigns each
 -- user a new household ID for backfilling the households and household_members tables.
+-- NOTE: This migration depends on 0001_init.sql having been applied (requires meals and plans tables).
 -- NOTE: This migration is idempotent. If the household_id column already exists on meals,
 -- the migration has already been run and the data migration will be skipped.
 do $$
@@ -163,6 +165,9 @@ begin
     select 1 from information_schema.columns
     where table_name = 'meals' and column_name = 'user_id'
   ) then
+    -- Create a temporary mapping table to establish which household each user should belong to.
+    -- This table maps each existing user (from meals/plans) to a newly generated household ID,
+    -- allowing us to atomically migrate all user data to the household-based schema.
     create temporary table user_households (
       user_id uuid primary key,
       household_id uuid not null
@@ -354,5 +359,29 @@ begin
   on conflict (user_id) do nothing;
 
   return query select invite_record.household_id, new_member_id, null::text, null::int;
+end;
+$$;
+
+-- Function to atomically create a household and owner member in a transaction
+create or replace function create_household_with_member(p_user_id uuid)
+returns table(household_id uuid, member_id uuid) 
+language plpgsql
+security definer
+as $$
+declare
+  new_household_id uuid;
+  new_member_id uuid;
+begin
+  -- Create household
+  insert into households (created_by)
+  values (p_user_id)
+  returning id into new_household_id;
+
+  -- Create member
+  insert into household_members (household_id, user_id, role, status)
+  values (new_household_id, p_user_id, 'owner', 'active')
+  returning id into new_member_id;
+
+  return query select new_household_id, new_member_id;
 end;
 $$;

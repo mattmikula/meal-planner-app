@@ -202,48 +202,67 @@ export async function ensureHouseholdContext(
     return existing;
   }
 
-  const { data: household, error: householdError } = await supabase
-    .from("households")
-    .insert({ created_by: userId })
-    .select("id, name, created_at")
-    .single();
+  // Use RPC to create household and member atomically in a transaction
+  const { data: result, error: rpcError } = await supabase.rpc(
+    "create_household_with_member",
+    { p_user_id: userId }
+  );
 
-  if (householdError || !household) {
-    throw new Error(householdError?.message ?? "Unable to create household");
-  }
+  if (rpcError || !result) {
+    // Fall back to non-transactional approach if RPC doesn't exist (for backwards compatibility)
+    const { data: household, error: householdError } = await supabase
+      .from("households")
+      .insert({ created_by: userId })
+      .select("id, name, created_at")
+      .single();
 
-  const { data: member, error: memberError } = await supabase
-    .from("household_members")
-    .insert({
-      household_id: household.id,
-      user_id: userId,
-      role: "owner",
-      status: "active"
-    })
-    .select("id, household_id, role, status, created_at")
-    .single();
-
-  if (memberError || !member) {
-    throw new Error(memberError?.message ?? "Unable to create household member");
-  }
-
-  const membership = member as HouseholdMemberRow;
-
-  await setCurrentHouseholdId(supabase, userId, household.id);
-
-  return {
-    household: {
-      id: household.id,
-      name: household.name,
-      createdAt: household.created_at
-    },
-    membership: {
-      id: membership.id,
-      householdId: membership.household_id,
-      userId,
-      role: membership.role,
-      status: membership.status,
-      createdAt: membership.created_at
+    if (householdError || !household) {
+      throw new Error(householdError?.message ?? "Unable to create household");
     }
-  };
+
+    const { data: member, error: memberError } = await supabase
+      .from("household_members")
+      .insert({
+        household_id: household.id,
+        user_id: userId,
+        role: "owner",
+        status: "active"
+      })
+      .select("id, household_id, role, status, created_at")
+      .single();
+
+    if (memberError || !member) {
+      throw new Error(memberError?.message ?? "Unable to create household member");
+    }
+
+    const membership = member as HouseholdMemberRow;
+
+    await setCurrentHouseholdId(supabase, userId, household.id);
+
+    return {
+      household: {
+        id: household.id,
+        name: household.name,
+        createdAt: household.created_at
+      },
+      membership: {
+        id: membership.id,
+        householdId: membership.household_id,
+        userId,
+        role: membership.role,
+        status: membership.status,
+        createdAt: membership.created_at
+      }
+    };
+  }
+
+  await setCurrentHouseholdId(supabase, userId, result.household_id);
+
+  // Fetch the complete context after creation
+  const context = await fetchHouseholdContext(supabase, userId);
+  if (!context) {
+    throw new Error("Failed to fetch created household context");
+  }
+
+  return context;
 }

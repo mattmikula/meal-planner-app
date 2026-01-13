@@ -35,10 +35,16 @@ const buildCleanSearch = (
   hashParams: URLSearchParams
 ) => {
   const cleanParams = new URLSearchParams(searchParams);
+  const cleanHash = new URLSearchParams(hashParams);
   SENSITIVE_KEYS.forEach((key) => {
     cleanParams.delete(key);
+    cleanHash.delete(key);
   });
-  return cleanParams.toString();
+  const hashString = cleanHash.toString();
+  return {
+    search: cleanParams.toString(),
+    hash: hashString ? `#${hashString}` : ""
+  };
 };
 
 const readInviteParams = () => {
@@ -52,16 +58,18 @@ const readInviteParams = () => {
 
   const accessToken = getParam(hashParams, searchParams, "access_token");
 
+  const cleaned = buildCleanSearch(searchParams, hashParams);
   return {
     inviteToken,
     accessToken,
     hasSensitive: hasSensitiveParams(hashParams, searchParams),
-    cleanSearch: buildCleanSearch(searchParams, hashParams)
+    cleanSearch: cleaned.search,
+    cleanHash: cleaned.hash
   };
 };
 
-const replaceUrl = (pathname: string, search: string) => {
-  const nextUrl = `${pathname}${search ? `?${search}` : ""}`;
+const replaceUrl = (pathname: string, search: string, hash: string) => {
+  const nextUrl = `${pathname}${search ? `?${search}` : ""}${hash}`;
   window.history.replaceState(null, "", nextUrl);
 };
 
@@ -156,7 +164,7 @@ export default function InviteClient() {
     let isMounted = true;
 
     const acceptInvite = async () => {
-      const { inviteToken, accessToken, hasSensitive, cleanSearch } = readInviteParams();
+      const { inviteToken, accessToken, hasSensitive, cleanSearch, cleanHash } = readInviteParams();
       if (inviteToken) {
         cacheRef.current = { token: inviteToken };
       }
@@ -164,7 +172,7 @@ export default function InviteClient() {
       const resolvedToken = inviteToken ?? cacheRef.current?.token;
 
       if (hasSensitive) {
-        replaceUrl(window.location.pathname, cleanSearch);
+        replaceUrl(window.location.pathname, cleanSearch, cleanHash);
       }
 
       if (!resolvedToken) {
