@@ -310,35 +310,49 @@ export default function MealsClient() {
       event.preventDefault();
       setStatus(null);
 
-      setSaving(true);
-
       try {
-        const responsePayload = editingId
-          ? (() => {
-              const updateResult = buildUpdateMealRequest(formName, formNotes);
-              if (!updateResult.ok) {
-                setStatus(updateResult.error);
-                return null;
-              }
-              return api.PATCH("/api/meals/{id}", {
-                params: { path: { id: editingId } },
-                body: updateResult.value
-              });
-            })()
-          : (() => {
-              const createResult = buildCreateMealRequest(formName, formNotes);
-              if (!createResult.ok) {
-                setStatus(createResult.error);
-                return null;
-              }
-              return api.POST("/api/meals", {
-                body: createResult.value
-              });
-            })();
+        if (editingId) {
+          const updateResult = buildUpdateMealRequest(formName, formNotes);
+          if (!updateResult.ok) {
+            setStatus(updateResult.error);
+            return;
+          }
 
-        if (!responsePayload) {
+          setSaving(true);
+          const responsePayload = await api.PATCH("/api/meals/{id}", {
+            params: { path: { id: editingId } },
+            body: updateResult.value
+          });
+
+          if (responsePayload.response?.status === 401) {
+            router.replace("/");
+            return;
+          }
+
+          if (!responsePayload.response?.ok || !responsePayload.data) {
+            setStatus(
+              getApiErrorMessage(responsePayload.error) ??
+                "Unable to update meal."
+            );
+            return;
+          }
+
+          setStatus("Meal updated.");
+          resetForm();
+          await loadMeals();
           return;
         }
+
+        const createResult = buildCreateMealRequest(formName, formNotes);
+        if (!createResult.ok) {
+          setStatus(createResult.error);
+          return;
+        }
+
+        setSaving(true);
+        const responsePayload = await api.POST("/api/meals", {
+          body: createResult.value
+        });
 
         if (responsePayload.response?.status === 401) {
           router.replace("/");
@@ -346,14 +360,11 @@ export default function MealsClient() {
         }
 
         if (!responsePayload.response?.ok || !responsePayload.data) {
-          setStatus(
-            getApiErrorMessage(responsePayload.error) ??
-              (editingId ? "Unable to update meal." : "Unable to add meal.")
-          );
+          setStatus(getApiErrorMessage(responsePayload.error) ?? "Unable to add meal.");
           return;
         }
 
-        setStatus(editingId ? "Meal updated." : "Meal added.");
+        setStatus("Meal added.");
         resetForm();
         await loadMeals();
       } catch {
