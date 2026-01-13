@@ -310,26 +310,35 @@ export default function MealsClient() {
       event.preventDefault();
       setStatus(null);
 
-      const result = editingId
-        ? buildUpdateMealRequest(formName, formNotes)
-        : buildCreateMealRequest(formName, formNotes);
-
-      if (!result.ok) {
-        setStatus(result.error);
-        return;
-      }
-
       setSaving(true);
 
       try {
         const responsePayload = editingId
-          ? await api.PATCH("/api/meals/{id}", {
-              params: { path: { id: editingId } },
-              body: result.value
-            })
-          : await api.POST("/api/meals", {
-              body: result.value
-            });
+          ? (() => {
+              const updateResult = buildUpdateMealRequest(formName, formNotes);
+              if (!updateResult.ok) {
+                setStatus(updateResult.error);
+                return null;
+              }
+              return api.PATCH("/api/meals/{id}", {
+                params: { path: { id: editingId } },
+                body: updateResult.value
+              });
+            })()
+          : (() => {
+              const createResult = buildCreateMealRequest(formName, formNotes);
+              if (!createResult.ok) {
+                setStatus(createResult.error);
+                return null;
+              }
+              return api.POST("/api/meals", {
+                body: createResult.value
+              });
+            })();
+
+        if (!responsePayload) {
+          return;
+        }
 
         if (responsePayload.response?.status === 401) {
           router.replace("/");
