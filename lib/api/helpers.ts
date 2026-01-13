@@ -1,5 +1,4 @@
 import { NextResponse } from "next/server";
-import { ZodError, type ZodSchema } from "zod";
 
 import { setAuthCookies } from "@/lib/auth/server";
 import { normalizeEmail as normalizeEmailUtil } from "@/lib/utils/email";
@@ -9,27 +8,6 @@ import { normalizeEmail as normalizeEmailUtil } from "@/lib/utils/email";
  */
 export function jsonError(message: string, status: number) {
   return NextResponse.json({ error: message }, { status });
-}
-
-/**
- * Validates data against a Zod schema.
- * Returns parsed data on success, or a 400 error response on failure.
- */
-export function validateRequest<T>(
-  data: unknown,
-  schema: ZodSchema<T>
-): { success: true; data: T } | { success: false; response: NextResponse } {
-  try {
-    const parsed = schema.parse(data);
-    return { success: true, data: parsed };
-  } catch (error) {
-    if (error instanceof ZodError) {
-      const firstError = error.issues[0];
-      const message = firstError?.message || "Invalid request body.";
-      return { success: false, response: jsonError(message, 400) };
-    }
-    return { success: false, response: jsonError("Invalid request body.", 400) };
-  }
 }
 
 /**
