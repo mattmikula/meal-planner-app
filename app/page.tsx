@@ -1,22 +1,11 @@
 "use client";
 
+import Link from "next/link";
 import { useEffect, useMemo, useState, type FormEvent } from "react";
-import { createApiClient } from "@/lib/api/client";
-import { createBrowserSupabaseClient } from "@/lib/supabase/browser";
 
-const getApiErrorMessage = (error: unknown) => {
-  if (!error) {
-    return null;
-  }
-  if (typeof error === "string") {
-    return error;
-  }
-  if (typeof error === "object" && "error" in error) {
-    const message = (error as { error?: unknown }).error;
-    return typeof message === "string" ? message : null;
-  }
-  return null;
-};
+import { createApiClient } from "@/lib/api/client";
+import { getApiErrorMessage } from "@/lib/api/errors";
+import { createBrowserSupabaseClient } from "@/lib/supabase/browser";
 
 export default function HomePage() {
   const supabase = useMemo(() => createBrowserSupabaseClient(), []);
@@ -142,9 +131,12 @@ export default function HomePage() {
       {userEmail ? (
         <section>
           <p>Signed in as {userEmail}</p>
-          <button type="button" onClick={handleLogout}>
-            Sign out
-          </button>
+          <div style={{ display: "flex", alignItems: "center", gap: "1rem" }}>
+            <Link href="/household/invite">Invite a household member</Link>
+            <button type="button" onClick={handleLogout}>
+              Sign out
+            </button>
+          </div>
         </section>
       ) : (
         <form onSubmit={handleLogin}>
