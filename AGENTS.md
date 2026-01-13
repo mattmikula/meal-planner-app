@@ -36,7 +36,7 @@
 ## Frontend Performance
 - **Actively consider re-rendering cost** when changing or adding UI
   - Use React DevTools / Profiler when behavior is unclear.
-  - Use memoization intentionally where it reducses re-render churn:
+  - Use memoization intentionally where it reduces re-render churn:
     - `React.memo` for stable, presentational components.
     - `useMemo` for expensive derived values.
     - `useCallback` for stable callbacks passed to memoized children.
