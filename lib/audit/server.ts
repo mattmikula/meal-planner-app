@@ -9,6 +9,7 @@ export const AUDIT_ENTITY_TYPES = ["meal", "plan", "plan_day"] as const;
 
 export type AuditEntityType = (typeof AUDIT_ENTITY_TYPES)[number];
 export type AuditEvent = components["schemas"]["AuditEvent"];
+type AuditEventSummary = components["schemas"]["AuditEvent"]["summary"];
 
 type AuditRow = {
   id: string;
@@ -52,7 +53,7 @@ const mapAuditRows = (rows: AuditRow[] | null): AuditEvent[] =>
     action: row.action,
     actorUserId: row.actor_user_id,
     createdAt: row.created_at,
-    summary: row.summary
+    summary: row.summary as AuditEventSummary
   }));
 
 export async function listAuditEvents(
