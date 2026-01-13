@@ -1,9 +1,7 @@
 import { NextResponse } from "next/server";
 
-import {
-  requireApiUser,
-  setAuthCookies
-} from "@/lib/auth/server";
+import { applyAuthCookies } from "@/lib/api/helpers";
+import { requireApiUser } from "@/lib/auth/server";
 
 export async function GET(request: Request) {
   const authResult = await requireApiUser(request);
@@ -16,11 +14,7 @@ export async function GET(request: Request) {
     email: authResult.email
   });
 
-  if (authResult.session) {
-    setAuthCookies(response, authResult.session, {
-      secure: new URL(request.url).protocol === "https:"
-    });
-  }
+  applyAuthCookies(response, authResult.session, request);
 
   return response;
 }

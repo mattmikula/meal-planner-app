@@ -1,32 +1,15 @@
 import { beforeEach, describe, expect, it, vi } from "vitest";
 
-import { createQuery } from "@/tests/supabase-mock";
-
 const authMocks = vi.hoisted(() => ({
   requireApiUser: vi.fn(),
   setAuthCookies: vi.fn()
 }));
 
-const householdMocks = vi.hoisted(() => {
-  class InviteUrlConfigError extends Error {
-    constructor(message: string) {
-      super(message);
-      this.name = "InviteUrlConfigError";
-    }
-  }
-
-  return {
-    ensureHouseholdContext: vi.fn(),
-    createInviteToken: vi.fn(),
-    buildInviteExpiry: vi.fn(),
-    buildInviteUrl: vi.fn(),
-    fetchHouseholdMembership: vi.fn(),
-    hashInviteToken: vi.fn(),
-    fetchInviteByTokenHash: vi.fn(),
-    acceptInviteAtomic: vi.fn(),
-    InviteUrlConfigError
-  };
-});
+const householdMocks = vi.hoisted(() => ({
+  ensureHouseholdContext: vi.fn(),
+  createHouseholdInvite: vi.fn(),
+  acceptHouseholdInvite: vi.fn()
+}));
 
 const supabaseMocks = vi.hoisted(() => ({
   createServerSupabaseClient: vi.fn()
@@ -34,7 +17,17 @@ const supabaseMocks = vi.hoisted(() => ({
 
 vi.mock("@/lib/auth/server", () => authMocks);
 
-vi.mock("@/lib/household/server", () => householdMocks);
+vi.mock("@/lib/household/server", async () => {
+  const actual = await vi.importActual<typeof import("@/lib/household/server")>(
+    "@/lib/household/server"
+  );
+  return {
+    ...actual,
+    ensureHouseholdContext: householdMocks.ensureHouseholdContext,
+    createHouseholdInvite: householdMocks.createHouseholdInvite,
+    acceptHouseholdInvite: householdMocks.acceptHouseholdInvite
+  };
+});
 
 vi.mock("@/lib/supabase/server", () => supabaseMocks);
 
@@ -77,41 +70,23 @@ describe("POST /api/household/invites", () => {
   const setupCreateInviteSuccess = async (email = "Ada@Example.com") => {
     authMocks.requireApiUser.mockResolvedValue({ userId: "user-1", email: "test@example.com" });
     householdMocks.ensureHouseholdContext.mockResolvedValue(householdContext);
-    householdMocks.createInviteToken.mockReturnValue({ token: "token-123", tokenHash: "hash-123" });
-    householdMocks.buildInviteExpiry.mockReturnValue("2024-02-14T10:00:00Z");
-    householdMocks.buildInviteUrl.mockReturnValue(
-      "http://localhost:3000/invite?invite_token=token-123"
-    );
-
-    const insertQuery = createQuery({
-      data: { id: "invite-1" },
-      error: null
+    householdMocks.createHouseholdInvite.mockResolvedValue({
+      inviteId: "invite-1",
+      inviteUrl: "http://localhost:3000/invite?invite_token=token-123"
     });
-    supabaseMocks.createServerSupabaseClient.mockReturnValue({
-      from: vi.fn().mockReturnValue(insertQuery)
-    });
+    const supabase = {};
+    supabaseMocks.createServerSupabaseClient.mockReturnValue(supabase);
 
     const response = await createInvite(createInviteRequest({ email }));
 
-    return { response, insertQuery };
+    return { response, supabase };
   };
 
-  const setupCreateInviteInsertFailure = async () => {
+  const setupCreateInviteFailure = async (error: Error) => {
     authMocks.requireApiUser.mockResolvedValue({ userId: "user-1", email: "test@example.com" });
     householdMocks.ensureHouseholdContext.mockResolvedValue(householdContext);
-    householdMocks.createInviteToken.mockReturnValue({ token: "token-123", tokenHash: "hash-123" });
-    householdMocks.buildInviteExpiry.mockReturnValue("2024-02-14T10:00:00Z");
-    householdMocks.buildInviteUrl.mockReturnValue(
-      "http://localhost:3000/invite?invite_token=token-123"
-    );
-
-    const insertQuery = createQuery({
-      data: null,
-      error: { message: "db error" }
-    });
-    supabaseMocks.createServerSupabaseClient.mockReturnValue({
-      from: vi.fn().mockReturnValue(insertQuery)
-    });
+    householdMocks.createHouseholdInvite.mockRejectedValue(error);
+    supabaseMocks.createServerSupabaseClient.mockReturnValue({});
 
     return createInvite(createInviteRequest({ email: "ada@example.com" }));
   };
@@ -179,78 +154,40 @@ describe("POST /api/household/invites", () => {
     });
   });
 
-  it("writes invite record with normalized email (lowercase)", async () => {
-    const { insertQuery } = await setupCreateInviteSuccess();
+  it("passes normalized email to the invite helper", async () => {
+    const { supabase } = await setupCreateInviteSuccess();
 
-    expect(insertQuery.insert).toHaveBeenCalledWith(
-      expect.objectContaining({
-        household_id: "household-1",
-        email: "ada@example.com",
-        token_hash: "hash-123",
-        expires_at: "2024-02-14T10:00:00Z",
-        created_by: "user-1"
-      })
-    );
-  });
-
-  it("includes the invite link on success", async () => {
-    await setupCreateInviteSuccess();
-
-    expect(householdMocks.buildInviteUrl).toHaveBeenCalledWith("token-123");
-  });
-
-  it("normalizes mixed-case email to lowercase", async () => {
-    authMocks.requireApiUser.mockResolvedValue({ userId: "user-1", email: "test@example.com" });
-
-    const insertQuery = {
-      insert: vi.fn().mockReturnThis(),
-      select: vi.fn().mockResolvedValue({
-        data: [{ id: "invite-1", token_hash: "hash-123" }],
-        error: null
-      })
-    };
-
-    supabaseMocks.createServerSupabaseClient.mockReturnValue({
-      from: vi.fn().mockReturnValue(insertQuery)
-    });
-
-    // Input email with mixed case
-    await createInvite(createInviteRequest({ email: "Ada@Example.com" }));
-
-    // Verify it was normalized to lowercase in the database insert
-    expect(insertQuery.insert).toHaveBeenCalledWith(
-      expect.objectContaining({
-        email: "ada@example.com"
-      })
+    expect(householdMocks.createHouseholdInvite).toHaveBeenCalledWith(
+      supabase,
+      "household-1",
+      "user-1",
+      { email: "ada@example.com" }
     );
   });
 
   it("normalizes email with whitespace and mixed case", async () => {
-    const { insertQuery } = await setupCreateInviteSuccess("  ADA@EXAMPLE.COM  ");
+    const { supabase } = await setupCreateInviteSuccess("  ADA@EXAMPLE.COM  ");
 
-    expect(insertQuery.insert).toHaveBeenCalledWith(
-      expect.objectContaining({
-        email: "ada@example.com"
-      })
+    expect(householdMocks.createHouseholdInvite).toHaveBeenCalledWith(
+      supabase,
+      "household-1",
+      "user-1",
+      { email: "ada@example.com" }
     );
   });
 
   it("returns 500 when invite insert fails", async () => {
-    const response = await setupCreateInviteInsertFailure();
+    const response = await setupCreateInviteFailure(new Error("db error"));
 
     expect(response.status).toBe(500);
     expect(await response.json()).toEqual({ error: "Unable to create invite." });
   });
 
   it("returns 500 when invite URL configuration is missing", async () => {
-    authMocks.requireApiUser.mockResolvedValue({ userId: "user-1", email: "test@example.com" });
-    householdMocks.ensureHouseholdContext.mockResolvedValue(householdContext);
-    householdMocks.createInviteToken.mockReturnValue({ token: "token-123", tokenHash: "hash-123" });
-    householdMocks.buildInviteUrl.mockImplementation(() => {
-      throw new householdMocks.InviteUrlConfigError("INVITE_ACCEPT_URL_BASE not configured");
-    });
-
-    const response = await createInvite(createInviteRequest({ email: "ada@example.com" }));
+    const { InviteUrlConfigError } = await import("@/lib/household/server");
+    const response = await setupCreateInviteFailure(
+      new InviteUrlConfigError("INVITE_ACCEPT_URL_BASE not configured")
+    );
 
     expect(response.status).toBe(500);
     expect(await response.json()).toEqual({ error: "Invite URL configuration is missing or invalid." });
@@ -258,23 +195,19 @@ describe("POST /api/household/invites", () => {
 });
 
 describe("POST /api/household/invites/accept", () => {
-  // Default valid invite for tests
-  const validInvite = {
-    id: "invite-1",
-    householdId: "household-1",
-    email: "ada@example.com",
-    expiresAt: new Date(Date.now() + 24 * 60 * 60 * 1000).toISOString(), // 24 hours from now
-    acceptedAt: null
-  };
-
-  const setupAcceptInviteBase = () => {
+  const setupAcceptInvite = (
+    result: { householdId: string; memberId: string } | { status: number; message: string },
+    email: string | null = "ada@example.com"
+  ) => {
     authMocks.requireApiUser.mockResolvedValue({
       userId: "user-1",
-      email: "ada@example.com"
+      email
     });
-    householdMocks.hashInviteToken.mockReturnValue("hash-abc");
-    householdMocks.fetchInviteByTokenHash.mockResolvedValue(validInvite);
-    householdMocks.acceptInviteAtomic.mockResolvedValue({ memberId: "member-2" });
+    const supabase = {};
+    supabaseMocks.createServerSupabaseClient.mockReturnValue(supabase);
+    householdMocks.acceptHouseholdInvite.mockResolvedValue(result);
+
+    return supabase;
   };
 
   it("returns 400 when token is missing", async () => {
@@ -325,10 +258,7 @@ describe("POST /api/household/invites/accept", () => {
   });
 
   it("returns 400 when user email is missing", async () => {
-    authMocks.requireApiUser.mockResolvedValue({
-      userId: "user-1",
-      email: null
-    });
+    setupAcceptInvite({ status: 400, message: "User email is required." }, null);
 
     const response = await acceptInvite(acceptInviteRequest({ token: "token-abc" }));
 
@@ -336,19 +266,27 @@ describe("POST /api/household/invites/accept", () => {
     expect(await response.json()).toEqual({ error: "User email is required." });
   });
 
-  it("does not touch the database when user email is missing", async () => {
-    authMocks.requireApiUser.mockResolvedValue({
-      userId: "user-1",
-      email: null
+  it("passes token to the invite helper", async () => {
+    const supabase = setupAcceptInvite({
+      householdId: "household-1",
+      memberId: "member-2"
     });
 
     await acceptInvite(acceptInviteRequest({ token: "token-abc" }));
 
-    expect(supabaseMocks.createServerSupabaseClient).not.toHaveBeenCalled();
+    expect(householdMocks.acceptHouseholdInvite).toHaveBeenCalledWith(
+      supabase,
+      "user-1",
+      "ada@example.com",
+      { token: "token-abc" }
+    );
   });
 
   it("accepts a valid invite", async () => {
-    setupAcceptInviteBase();
+    setupAcceptInvite({
+      householdId: "household-1",
+      memberId: "member-2"
+    });
 
     const response = await acceptInvite(acceptInviteRequest({ token: "token-abc" }));
 
@@ -359,21 +297,8 @@ describe("POST /api/household/invites/accept", () => {
     });
   });
 
-  it("looks up invites by token hash", async () => {
-    setupAcceptInviteBase();
-
-    await acceptInvite(acceptInviteRequest({ token: "token-abc" }));
-
-    expect(householdMocks.hashInviteToken).toHaveBeenCalledWith("token-abc");
-    expect(householdMocks.fetchInviteByTokenHash).toHaveBeenCalledWith(
-      expect.anything(),
-      "hash-abc"
-    );
-  });
-
   it("rejects invites that cannot be found", async () => {
-    setupAcceptInviteBase();
-    householdMocks.fetchInviteByTokenHash.mockResolvedValue(null);
+    setupAcceptInvite({ status: 400, message: "Invalid or expired invite." });
 
     const response = await acceptInvite(acceptInviteRequest({ token: "token-abc" }));
 
@@ -382,11 +307,7 @@ describe("POST /api/household/invites/accept", () => {
   });
 
   it("rejects already used invites", async () => {
-    setupAcceptInviteBase();
-    householdMocks.fetchInviteByTokenHash.mockResolvedValue({
-      ...validInvite,
-      acceptedAt: "2024-02-12T10:00:00Z"
-    });
+    setupAcceptInvite({ status: 409, message: "Invite already used." });
 
     const response = await acceptInvite(acceptInviteRequest({ token: "token-abc" }));
 
@@ -395,8 +316,10 @@ describe("POST /api/household/invites/accept", () => {
   });
 
   it("rejects invite for existing household members", async () => {
-    setupAcceptInviteBase();
-    householdMocks.acceptInviteAtomic.mockResolvedValue({ errorCode: "already_member" });
+    setupAcceptInvite({
+      status: 409,
+      message: "You are already a member of this household."
+    });
 
     const response = await acceptInvite(acceptInviteRequest({ token: "token-abc" }));
 
@@ -407,10 +330,9 @@ describe("POST /api/household/invites/accept", () => {
   });
 
   it("rejects invite email mismatches", async () => {
-    setupAcceptInviteBase();
-    householdMocks.fetchInviteByTokenHash.mockResolvedValue({
-      ...validInvite,
-      email: "other@example.com"
+    setupAcceptInvite({
+      status: 403,
+      message: "This invite is for a different email address."
     });
 
     const response = await acceptInvite(acceptInviteRequest({ token: "token-abc" }));
@@ -420,11 +342,7 @@ describe("POST /api/household/invites/accept", () => {
   });
 
   it("rejects expired invites", async () => {
-    setupAcceptInviteBase();
-    householdMocks.fetchInviteByTokenHash.mockResolvedValue({
-      ...validInvite,
-      expiresAt: new Date(Date.now() - 1000).toISOString() // 1 second ago
-    });
+    setupAcceptInvite({ status: 400, message: "Invite expired." });
 
     const response = await acceptInvite(acceptInviteRequest({ token: "token-abc" }));
 
@@ -433,8 +351,12 @@ describe("POST /api/household/invites/accept", () => {
   });
 
   it("returns 500 when accepting invite fails", async () => {
-    setupAcceptInviteBase();
-    householdMocks.acceptInviteAtomic.mockRejectedValue(new Error("rpc failed"));
+    authMocks.requireApiUser.mockResolvedValue({
+      userId: "user-1",
+      email: "ada@example.com"
+    });
+    supabaseMocks.createServerSupabaseClient.mockReturnValue({});
+    householdMocks.acceptHouseholdInvite.mockRejectedValue(new Error("rpc failed"));
 
     const response = await acceptInvite(acceptInviteRequest({ token: "token-abc" }));
 
@@ -443,8 +365,7 @@ describe("POST /api/household/invites/accept", () => {
   });
 
   it("returns 400 when invite was deleted between validation and atomic call", async () => {
-    setupAcceptInviteBase();
-    householdMocks.acceptInviteAtomic.mockResolvedValue({ errorCode: "invite_not_found" });
+    setupAcceptInvite({ status: 400, message: "Invalid or expired invite." });
 
     const response = await acceptInvite(acceptInviteRequest({ token: "token-abc" }));
 

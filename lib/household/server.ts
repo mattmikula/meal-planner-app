@@ -1,7 +1,10 @@
 import "server-only";
 import { createHash, randomBytes } from "node:crypto";
+import { z } from "zod";
 
+import type { components } from "@/lib/api/types";
 import { createServerSupabaseClient } from "@/lib/supabase/server";
+import { normalizeEmail } from "@/lib/utils/email";
 
 export const INVITE_TTL_HOURS = 48;
 
@@ -23,9 +26,19 @@ export type HouseholdContext = {
   };
 };
 
+export type HouseholdMember = components["schemas"]["HouseholdMember"];
+
 type HouseholdMemberRow = {
   id: string;
   household_id: string;
+  role: string;
+  status: string;
+  created_at: string;
+};
+
+type HouseholdMemberDetailRow = {
+  id: string;
+  user_id: string;
   role: string;
   status: string;
   created_at: string;
@@ -200,6 +213,29 @@ export async function fetchHouseholdMembership(
   return member ? mapMembership(member, userId) : null;
 }
 
+export async function listHouseholdMembers(
+  supabase: SupabaseClient,
+  householdId: string
+): Promise<HouseholdMember[]> {
+  const { data, error } = await supabase
+    .from("household_members")
+    .select("id, user_id, role, status, created_at")
+    .eq("household_id", householdId)
+    .order("created_at", { ascending: true });
+
+  if (error) {
+    throw new Error(error.message);
+  }
+
+  return ((data as HouseholdMemberDetailRow[] | null) ?? []).map((member) => ({
+    id: member.id,
+    userId: member.user_id,
+    role: member.role,
+    status: member.status,
+    createdAt: member.created_at
+  })) as HouseholdMember[];
+}
+
 export async function fetchHouseholdContext(
   supabase: SupabaseClient,
   userId: string
@@ -267,6 +303,203 @@ export async function ensureHouseholdContext(
   }
 
   return context;
+}
+
+const isValidInviteEmail = (email: string) => {
+  const [localPart, domain] = email.split("@");
+  if (!localPart || !domain) {
+    return false;
+  }
+  if (
+    !domain.includes(".") ||
+    domain.startsWith(".") ||
+    domain.endsWith(".") ||
+    domain.includes("..")
+  ) {
+    return false;
+  }
+  return true;
+};
+
+const inviteEmailSchema = z
+  .any()
+  .superRefine((value, ctx) => {
+    if (value === undefined) {
+      ctx.addIssue({
+        code: z.ZodIssueCode.custom,
+        message: "Email is required."
+      });
+      return;
+    }
+    if (typeof value !== "string") {
+      ctx.addIssue({
+        code: z.ZodIssueCode.custom,
+        message: "Email must be a string."
+      });
+      return;
+    }
+    const trimmed = value.trim();
+    if (!trimmed) {
+      ctx.addIssue({
+        code: z.ZodIssueCode.custom,
+        message: "Email is required."
+      });
+      return;
+    }
+    if (!isValidInviteEmail(trimmed.toLowerCase())) {
+      ctx.addIssue({
+        code: z.ZodIssueCode.custom,
+        message: "Invalid email format."
+      });
+    }
+  })
+  .transform((value) =>
+    typeof value === "string" ? value.trim().toLowerCase() : value
+  ) as z.ZodType<string>;
+
+export const createHouseholdInviteSchema = z.object({
+  email: inviteEmailSchema
+}) satisfies z.ZodType<components["schemas"]["HouseholdInviteRequest"]>;
+
+export type CreateHouseholdInviteInput = z.infer<typeof createHouseholdInviteSchema>;
+
+const inviteTokenSchema = z
+  .any()
+  .superRefine((value, ctx) => {
+    if (value === undefined) {
+      ctx.addIssue({
+        code: z.ZodIssueCode.custom,
+        message: "Token is required."
+      });
+      return;
+    }
+    if (typeof value !== "string") {
+      ctx.addIssue({
+        code: z.ZodIssueCode.custom,
+        message: "Token is required."
+      });
+      return;
+    }
+    if (!value.length) {
+      ctx.addIssue({
+        code: z.ZodIssueCode.custom,
+        message: "Token is required."
+      });
+      return;
+    }
+    if (!value.trim().length) {
+      ctx.addIssue({
+        code: z.ZodIssueCode.custom,
+        message: "Token cannot be empty or whitespace."
+      });
+    }
+  })
+  .transform((value) => (typeof value === "string" ? value.trim() : value)) as z.ZodType<string>;
+
+export const acceptHouseholdInviteSchema = z.object({
+  token: inviteTokenSchema
+}) satisfies z.ZodType<components["schemas"]["HouseholdInviteAcceptRequest"]>;
+
+export type AcceptHouseholdInviteInput = z.infer<typeof acceptHouseholdInviteSchema>;
+
+async function insertInvite(
+  supabase: SupabaseClient,
+  householdId: string,
+  email: string,
+  tokenHash: string,
+  expiresAt: string,
+  userId: string
+) {
+  const { data, error } = await supabase
+    .from("household_invites")
+    .insert({
+      household_id: householdId,
+      email,
+      token_hash: tokenHash,
+      expires_at: expiresAt,
+      created_by: userId
+    })
+    .select("id")
+    .single();
+
+  if (error || !data) {
+    throw new Error(error?.message ?? "Unable to create invite.");
+  }
+
+  return data.id as string;
+}
+
+export async function createHouseholdInvite(
+  supabase: SupabaseClient,
+  householdId: string,
+  userId: string,
+  input: CreateHouseholdInviteInput
+): Promise<{ inviteId: string; inviteUrl: string }> {
+  const { token, tokenHash } = createInviteToken();
+  const inviteUrl = buildInviteUrl(token);
+  const expiresAt = buildInviteExpiry();
+
+  const inviteId = await insertInvite(
+    supabase,
+    householdId,
+    input.email,
+    tokenHash,
+    expiresAt,
+    userId
+  );
+
+  return { inviteId, inviteUrl };
+}
+
+export async function acceptHouseholdInvite(
+  supabase: SupabaseClient,
+  userId: string,
+  userEmail: string | null,
+  input: AcceptHouseholdInviteInput
+): Promise<{ householdId: string; memberId: string } | { status: number; message: string }> {
+  const normalizedEmail = normalizeEmail(userEmail);
+  if (!normalizedEmail) {
+    return { status: 400, message: "User email is required." };
+  }
+
+  const tokenHash = hashInviteToken(input.token);
+  const invite = await fetchInviteByTokenHash(supabase, tokenHash);
+
+  if (!invite) {
+    return { status: 400, message: "Invalid or expired invite." };
+  }
+
+  if (invite.acceptedAt) {
+    return { status: 409, message: "Invite already used." };
+  }
+
+  if (new Date(invite.expiresAt) <= new Date()) {
+    return { status: 400, message: "Invite expired." };
+  }
+
+  if (invite.email !== normalizedEmail) {
+    return { status: 403, message: "This invite is for a different email address." };
+  }
+
+  const result = await acceptInviteAtomic(
+    supabase,
+    invite.id,
+    invite.householdId,
+    userId
+  );
+
+  if ("errorCode" in result) {
+    switch (result.errorCode) {
+      case "invite_not_found":
+        return { status: 400, message: "Invalid or expired invite." };
+      case "already_accepted":
+        return { status: 409, message: "Invite already used." };
+      case "already_member":
+        return { status: 409, message: "You are already a member of this household." };
+    }
+  }
+
+  return { householdId: invite.householdId, memberId: result.memberId };
 }
 
 // Types for invite operations
