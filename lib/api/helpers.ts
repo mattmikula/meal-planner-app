@@ -16,7 +16,7 @@ export function jsonError(message: string, status: number) {
  * If the X-Forwarded-Proto header is provided, it is used as the primary signal.
  * Otherwise, the URL protocol is used as a fallback.
  * 
- * SECURITY NOTE: In production, ensure your reverse proxy (nginx, ALB, etc.) strips
+ * Security Note: In production, ensure your reverse proxy (nginx, ALB, etc.) strips
  * untrusted X-Forwarded-Proto headers from client requests. Otherwise, clients could
  * force insecure cookie settings by sending a forged header.
  */

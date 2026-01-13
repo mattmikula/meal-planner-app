@@ -81,11 +81,15 @@ const VALIDATED_INVITE_BASE_URL = (() => {
 
 /**
  * Builds an invite URL with the token as a query parameter.
- * 
+ *
  * WARNING: Invite tokens in URLs can be logged by proxies, browsers, and analytics tools.
- * Users should be warned not to share screenshots of invite URLs.
- * Invite links should be treated as sensitive and expire after INVITE_TTL_HOURS.
- * 
+ * They MUST be sent only over secure channels (e.g., HTTPS links, encrypted email, or
+ * trusted end-to-end encrypted messaging) and never via plaintext or untrusted channels.
+ * Users and UIs should clearly warn people not to share screenshots or screen recordings
+ * that include the invite URL, since this exposes the raw token.
+ * The 48-hour expiry (INVITE_TTL_HOURS) limits the window of exposure if a link is leaked,
+ * but it is only a mitigation and does not replace the need for secure transport and handling.
+ *
  * @param token - The raw invite token to include in the URL
  * @returns The complete invite URL, or null if INVITE_ACCEPT_URL_BASE is not configured or invalid
  */

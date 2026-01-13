@@ -94,10 +94,12 @@ create policy "Users can view household members"
   );
 
 -- Household members: allow management through service role only (via RPC functions)
--- NOTE: While this policy allows service_role full privileges, member changes are already
--- tracked via household_invites.accepted_by/accepted_at. The audit_log table is reserved
--- for tracking user-initiated operations (recipes, meals, plans, etc.) rather than
--- system-managed invite acceptance.
+-- NOTE: While this policy allows service_role full privileges, member changes resulting
+-- from invite workflows are intentionally *not* duplicated in audit_log. Instead, they
+-- are tracked via household_invites.accepted_by/accepted_at, which records who accepted
+-- an invite and when. The audit_log table is reserved for explicit, user-initiated domain
+-- operations (recipes, meals, plans, etc.), whereas invite acceptance is treated as a
+-- system-managed workflow step derived from those invite records.
 create policy "System can manage household members"
   on household_members for all
   to service_role
@@ -188,9 +190,9 @@ begin
       insert into user_households (user_id, household_id)
       select user_id, gen_random_uuid()
       from (
-        select user_id from meals where exists (select 1 from information_schema.tables where table_name = 'meals')
+        select user_id from meals
         union
-        select user_id from plans where exists (select 1 from information_schema.tables where table_name = 'plans')
+        select user_id from plans
       ) users;
     end if;
 
@@ -422,7 +424,7 @@ begin
   -- Automatically switch user's current household to the newly joined one.
   -- WARNING: This unconditionally changes the user's context, which may disrupt
   -- their workflow if they were actively using a different household.
-  -- Future enhancement: Make this optional or prompt the user to switch.
+  -- TODO: Make this optional or prompt the user to switch.
   insert into user_household_settings (user_id, current_household_id)
   values (v_user_id, invite_record.household_id)
   on conflict (user_id) do update
