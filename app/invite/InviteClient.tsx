@@ -1,7 +1,7 @@
 "use client";
 
 import Link from "next/link";
-import { useEffect, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 
 import { createApiClient } from "@/lib/api/client";
 import { getApiErrorMessage } from "@/lib/api/errors";
@@ -57,17 +57,16 @@ const replaceUrl = (pathname: string, search: string) => {
   window.history.replaceState(null, "", nextUrl);
 };
 
-let cachedInvite:
-  | {
-      token: string;
-      result?: InviteResult;
-      promise?: Promise<InviteResult>;
-    }
-  | null = null;
+type CachedInvite = {
+  token: string;
+  result?: InviteResult;
+  promise?: Promise<InviteResult>;
+} | null;
 
 const acceptInviteToken = async (
   inviteToken: string,
-  accessToken: string | null
+  accessToken: string | null,
+  cache: { current: CachedInvite }
 ): Promise<InviteResult> => {
   try {
     const api = createApiClient(accessToken ? { token: accessToken } : undefined);
@@ -92,38 +91,43 @@ const acceptInviteToken = async (
   }
 };
 
-const getInviteResult = (inviteToken: string, accessToken: string | null) => {
-  if (cachedInvite?.token === inviteToken) {
-    if (cachedInvite.result) {
-      return Promise.resolve(cachedInvite.result);
+const getInviteResult = (
+  inviteToken: string,
+  accessToken: string | null,
+  cache: { current: CachedInvite }
+) => {
+  if (cache.current?.token === inviteToken) {
+    if (cache.current.result) {
+      return Promise.resolve(cache.current.result);
     }
-    if (cachedInvite.promise) {
-      return cachedInvite.promise;
+    if (cache.current.promise) {
+      return cache.current.promise;
     }
   }
 
-  const promise = acceptInviteToken(inviteToken, accessToken)
+  const promise = acceptInviteToken(inviteToken, accessToken, cache)
     .then((result) => {
-      if (cachedInvite?.token === inviteToken) {
-        cachedInvite.result = result;
-        cachedInvite.promise = undefined;
+      if (cache.current?.token === inviteToken) {
+        cache.current.result = result;
+        cache.current.promise = undefined;
       }
       return result;
     })
     .catch((error) => {
-      if (cachedInvite?.token === inviteToken) {
-        cachedInvite.promise = undefined;
+      if (cache.current?.token === inviteToken) {
+        cache.current.promise = undefined;
       }
       throw error;
     });
 
-  cachedInvite = { token: inviteToken, promise };
+  cache.current = { token: inviteToken, promise };
   return promise;
 };
 
 export default function InviteClient() {
   const [status, setStatus] = useState<InviteStatus>("idle");
   const [message, setMessage] = useState<string | null>(null);
+  const cacheRef = useRef<CachedInvite>(null);
 
   useEffect(() => {
     let isMounted = true;
@@ -131,10 +135,10 @@ export default function InviteClient() {
     const acceptInvite = async () => {
       const { inviteToken, accessToken, hasSensitive, cleanSearch } = readInviteParams();
       if (inviteToken) {
-        cachedInvite = { token: inviteToken };
+        cacheRef.current = { token: inviteToken };
       }
 
-      const resolvedToken = inviteToken ?? cachedInvite?.token;
+      const resolvedToken = inviteToken ?? cacheRef.current?.token;
 
       if (hasSensitive) {
         replaceUrl(window.location.pathname, cleanSearch);
@@ -152,22 +156,20 @@ export default function InviteClient() {
         setStatus("loading");
       }
 
-      const result = await getInviteResult(resolvedToken, accessToken);
+      const result = await getInviteResult(resolvedToken, accessToken, cacheRef);
       if (!isMounted) {
         return;
       }
 
       setStatus(result.status);
       setMessage(result.message);
-      if (cachedInvite?.token === resolvedToken) {
-        cachedInvite = null;
-      }
     };
 
     acceptInvite();
 
     return () => {
       isMounted = false;
+      cacheRef.current = null;
     };
   }, []);
 

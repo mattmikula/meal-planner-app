@@ -180,14 +180,14 @@ export default function InviteMemberClient() {
             value={inviteUrl}
             style={inputStyle}
           />
-          <button type="button" onClick={handleCopy}>
+          <button type="button" onClick={handleCopy} aria-label="Copy invite link to clipboard">
             Copy link
           </button>
         </div>
       ) : null}
 
       {status ? (
-        <p style={statusStyle} role="status">
+        <p style={statusStyle} role="status" aria-live="polite">
           {status}
         </p>
       ) : null}
