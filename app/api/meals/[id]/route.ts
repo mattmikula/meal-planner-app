@@ -65,7 +65,7 @@ export async function DELETE(request: Request, context: RouteContext) {
     return authResult.response;
   }
 
-  const { id: mealId } = await context.params;
+  const { id: mealId } = context.params;
   const supabase = createServerSupabaseClient();
 
   try {

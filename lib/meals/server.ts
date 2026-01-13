@@ -86,8 +86,8 @@ export async function createMeal(
     .from("meals")
     .insert({
       household_id: householdId,
-      name: input.name.trim(),
-      notes: input.notes?.trim() || null,
+      name: input.name,
+      notes: input.notes || null,
       created_by: userId,
       created_at: now
     })
@@ -163,11 +163,11 @@ export async function updateMeal(
   };
   
   if (input.name !== undefined) {
-    updates.name = input.name.trim();
+    updates.name = input.name;
   }
   
   if (input.notes !== undefined) {
-    updates.notes = input.notes.trim() || null;
+    updates.notes = input.notes || null;
   }
   
   const { data, error } = await supabase
