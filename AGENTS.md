@@ -24,6 +24,26 @@
 - Adhere to single responsibility principle.
 - When creating functions: keep arguments small; prefer primitive types
 
+## Input Validation
+- **OpenAPI spec is the source of truth**
+  - All request/response shapes defined in `docs/api/openapi.yaml`
+  - Run `pnpm codegen` after updating OpenAPI spec to regenerate types
+  - Generated types live in `lib/api/types.ts`
+- **Use Zod for runtime validation, constrained by OpenAPI**
+  - Define schemas in the server helper module (e.g., `lib/meals/server.ts`)
+  - Constrain schemas to match OpenAPI: `satisfies z.ZodType<components["schemas"]["SchemaName"]>`
+  - TypeScript will error if schema drifts from OpenAPI spec
+  - Export schemas for use in route handlers
+  - Use the `validateRequest` helper from `lib/api/helpers.ts` in routes
+- **Schema naming convention:**
+  - Create operations: `createEntitySchema`
+  - Update operations: `updateEntitySchema`
+  - Input types derived from schemas: `type CreateEntityInput = z.infer<typeof createEntitySchema>`
+- **Validation error handling:**
+  - `validateRequest` returns success/failure discriminated union
+  - Always return the first validation error to the client (clear, actionable feedback)
+  - Never expose internal errors or stack traces in validation messages
+
 ## Component Design Guidelines
 - Favor small, specialized components that do one thing well.
 - Extract reusable pieces early to keep route segments and pages focused.
@@ -41,6 +61,13 @@
     - `useMemo` for expensive derived values.
     - `useCallback` for stable callbacks passed to memoized children.
   - Avoid passing freshly-created objects/functions deep into the tree unless it's harmless or localized.
+
+## API Route Design
+- **Routes are thin HTTP adapters**
+  - Handle HTTP concerns: parsing requests, auth, status codes, response formatting
+  - Delegate business logic, validation, and database operations to helper modules (e.g., `lib/meals/server.ts`)
+  - Typical route structure: auth → validate → business logic function → format response
+  - Keep routes focused and easy to read; complex logic belongs in testable helper functions
 
 ## Frontend/Backend Separation
 - Keep core business rules and validation on the backend so every client shares the same behavior.
