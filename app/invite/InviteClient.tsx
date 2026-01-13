@@ -169,7 +169,6 @@ export default function InviteClient() {
 
     return () => {
       isMounted = false;
-      cacheRef.current = null;
     };
   }, []);
 
