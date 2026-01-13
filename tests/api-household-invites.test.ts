@@ -249,6 +249,18 @@ describe("POST /api/household/invites/accept", () => {
     expect(await response.json()).toEqual({ error: "Token is required." });
   });
 
+  it("returns 400 when token is only whitespace", async () => {
+    authMocks.requireApiUser.mockResolvedValue({
+      userId: "user-1",
+      email: "ada@example.com"
+    });
+
+    const response = await acceptInvite(acceptInviteRequest({ token: "   " }));
+
+    expect(response.status).toBe(400);
+    expect(await response.json()).toEqual({ error: "Token cannot be empty or whitespace." });
+  });
+
   it("returns 400 when token is not a string", async () => {
     authMocks.requireApiUser.mockResolvedValue({
       userId: "user-1",
@@ -402,7 +414,7 @@ describe("POST /api/household/invites/accept", () => {
       data: {
         household_id: null,
         member_id: null,
-        error_message: "Invite email does not match.",
+        error_message: "This invite was sent to a different email address than the one you're signed in with.",
         error_status: 403
       },
       error: null
@@ -412,7 +424,7 @@ describe("POST /api/household/invites/accept", () => {
     const response = await acceptInvite(acceptInviteRequest({ token: "token-abc" }));
 
     expect(response.status).toBe(403);
-    expect(await response.json()).toEqual({ error: "Invite email does not match." });
+    expect(await response.json()).toEqual({ error: "This invite was sent to a different email address than the one you're signed in with." });
   });
 
   it("rejects expired invites", async () => {

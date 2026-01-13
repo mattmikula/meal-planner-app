@@ -94,6 +94,10 @@ create policy "Users can view household members"
   );
 
 -- Household members: allow management through service role only (via RPC functions)
+-- NOTE: While this policy allows service_role full privileges, member changes are already
+-- tracked via household_invites.accepted_by/accepted_at. The audit_log table is reserved
+-- for tracking user-initiated operations (recipes, meals, plans, etc.) rather than
+-- system-managed invite acceptance.
 create policy "System can manage household members"
   on household_members for all
   to service_role

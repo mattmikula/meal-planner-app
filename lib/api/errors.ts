@@ -26,7 +26,7 @@ export function getApiErrorMessage(error: unknown): string | null {
     }
 
     // Fallback to a top-level error property, which may itself be nested
-    if ("error" in obj && obj.error != null) {
+    if ("error" in obj && obj.error !== undefined && obj.error !== null) {
       const nested = obj.error;
 
       if (typeof nested === "string" && nested) {

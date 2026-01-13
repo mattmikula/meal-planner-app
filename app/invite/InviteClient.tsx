@@ -86,15 +86,6 @@ type CachedInvite = {
   promise?: Promise<InviteResult>;
 } | null;
 
-const clearCacheIfTokenChanged = (
-  cache: { current: CachedInvite },
-  inviteToken: string | null
-) => {
-  if (cache.current && cache.current.token !== inviteToken) {
-    cache.current = null;
-  }
-};
-
 const acceptInviteToken = async (
   inviteToken: string,
   accessToken: string | null,
