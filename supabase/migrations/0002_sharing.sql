@@ -54,6 +54,7 @@ create table if not exists audit_log (
 
 create index if not exists audit_log_household_idx on audit_log(household_id);
 create index if not exists audit_log_entity_idx on audit_log(entity_type, entity_id);
+create index if not exists audit_log_created_at_idx on audit_log(created_at desc);
 
 -- Enable Row-Level Security on all new tables
 alter table households enable row level security;

@@ -75,9 +75,16 @@ export async function POST(request: Request) {
     return jsonError("Email is required.", 400);
   }
 
-  // Basic email format validation (must have local part, @, and domain with dot)
+  // Basic email format validation (must have local part, @, and valid domain)
   const [localPart, domain] = email.split("@");
-  if (!localPart || !domain || !domain.includes(".") || domain.startsWith(".") || domain.endsWith(".")) {
+  if (
+    !localPart ||
+    !domain ||
+    !domain.includes(".") ||
+    domain.startsWith(".") ||
+    domain.endsWith(".") ||
+    domain.includes("..")
+  ) {
     return jsonError("Invalid email format.", 400);
   }
 
