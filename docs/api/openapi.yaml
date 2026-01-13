@@ -18,6 +18,8 @@ tags:
     description: Household sharing and invites
   - name: Audit
     description: Household audit trail
+  - name: Meals
+    description: Meal management endpoints
 
 paths:
   /api/health:
@@ -339,9 +341,70 @@ paths:
                 $ref: "#/components/schemas/Error"
 
   /api/meals:
-    summary: Meals endpoints (placeholder)
-    description: Placeholder for CRUD endpoints on meals.
-    x-placeholder: true
+    get:
+      summary: List meals
+      description: Returns all meals for the current household.
+      tags:
+        - Meals
+      security:
+        - bearerAuth: []
+      responses:
+        "200":
+          description: List of meals.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/MealsResponse"
+        "401":
+          description: Missing or invalid credentials.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Error"
+        "500":
+          description: Meals lookup failed.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Error"
+    post:
+      summary: Create meal
+      description: Creates a new meal for the current household.
+      tags:
+        - Meals
+      security:
+        - bearerAuth: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/CreateMealRequest"
+      responses:
+        "200":
+          description: Meal created.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Meal"
+        "400":
+          description: Invalid request body.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Error"
+        "401":
+          description: Missing or invalid credentials.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Error"
+        "500":
+          description: Meal creation failed.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Error"
 
   /api/verify-otp:
     post:
@@ -417,9 +480,98 @@ paths:
                     ok: true
 
   /api/meals/{id}:
-    summary: Meal endpoints by id (placeholder)
-    description: Placeholder for single-meal operations.
-    x-placeholder: true
+    patch:
+      summary: Update meal
+      description: Updates an existing meal.
+      tags:
+        - Meals
+      security:
+        - bearerAuth: []
+      parameters:
+        - name: id
+          in: path
+          description: Meal ID
+          required: true
+          schema:
+            type: string
+            format: uuid
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/UpdateMealRequest"
+      responses:
+        "200":
+          description: Meal updated.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Meal"
+        "400":
+          description: Invalid request body.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Error"
+        "401":
+          description: Missing or invalid credentials.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Error"
+        "404":
+          description: Meal not found.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Error"
+        "500":
+          description: Meal update failed.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Error"
+    delete:
+      summary: Delete meal
+      description: Deletes an existing meal.
+      tags:
+        - Meals
+      security:
+        - bearerAuth: []
+      parameters:
+        - name: id
+          in: path
+          description: Meal ID
+          required: true
+          schema:
+            type: string
+            format: uuid
+      responses:
+        "200":
+          description: Meal deleted.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/DeleteMealResponse"
+        "401":
+          description: Missing or invalid credentials.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Error"
+        "404":
+          description: Meal not found.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Error"
+        "500":
+          description: Meal deletion failed.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Error"
 
   /api/plans:
     summary: Plans endpoints (placeholder)
@@ -642,3 +794,77 @@ components:
           type: array
           items:
             $ref: "#/components/schemas/AuditEvent"
+
+    Meal:
+      type: object
+      required:
+        - id
+        - name
+        - createdAt
+        - createdBy
+      properties:
+        id:
+          type: string
+          format: uuid
+        name:
+          type: string
+        notes:
+          type: string
+          nullable: true
+        createdAt:
+          type: string
+          format: date-time
+        createdBy:
+          type: string
+          format: uuid
+        updatedAt:
+          type: string
+          format: date-time
+          nullable: true
+        updatedBy:
+          type: string
+          format: uuid
+          nullable: true
+
+    MealsResponse:
+      type: object
+      required:
+        - meals
+      properties:
+        meals:
+          type: array
+          items:
+            $ref: "#/components/schemas/Meal"
+
+    CreateMealRequest:
+      type: object
+      required:
+        - name
+      properties:
+        name:
+          type: string
+          minLength: 1
+          maxLength: 200
+        notes:
+          type: string
+          maxLength: 1000
+
+    UpdateMealRequest:
+      type: object
+      properties:
+        name:
+          type: string
+          minLength: 1
+          maxLength: 200
+        notes:
+          type: string
+          maxLength: 1000
+
+    DeleteMealResponse:
+      type: object
+      required:
+        - ok
+      properties:
+        ok:
+          type: boolean
+          const: true
