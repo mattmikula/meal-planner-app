@@ -91,7 +91,7 @@ export async function POST(request: Request) {
     );
 
     const response = NextResponse.json({ inviteId, inviteUrl });
-    applyAuthCookies(response, authResult.session, request.url);
+    applyAuthCookies(response, authResult.session, request);
 
     return response;
   } catch (error) {

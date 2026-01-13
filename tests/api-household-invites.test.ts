@@ -179,6 +179,16 @@ describe("POST /api/household/invites", () => {
     );
   });
 
+  it("normalizes email with whitespace and mixed case", async () => {
+    const { insertQuery } = await setupCreateInviteSuccess("  ADA@EXAMPLE.COM  ");
+
+    expect(insertQuery.insert).toHaveBeenCalledWith(
+      expect.objectContaining({
+        email: "ada@example.com"
+      })
+    );
+  });
+
   it("returns 500 when invite insert fails", async () => {
     const response = await setupCreateInviteInsertFailure();
 

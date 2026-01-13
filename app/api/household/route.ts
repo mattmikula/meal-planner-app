@@ -26,7 +26,7 @@ export async function GET(request: Request) {
   try {
     const context = await ensureHouseholdContext(supabase, authResult.userId);
     const response = NextResponse.json(buildHouseholdPayload(context));
-    applyAuthCookies(response, authResult.session, request.url);
+    applyAuthCookies(response, authResult.session, request);
 
     return response;
   } catch (error) {

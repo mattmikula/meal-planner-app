@@ -25,7 +25,15 @@ const hasSensitiveParams = (
   searchParams: URLSearchParams
 ) => SENSITIVE_KEYS.some((key) => hashParams.has(key) || searchParams.has(key));
 
-const buildCleanSearch = (searchParams: URLSearchParams) => {
+/**
+ * Builds a clean search string by removing sensitive parameters from both
+ * search params and hash params. Returns the cleaned search string only
+ * (hash is removed entirely if it contains sensitive data).
+ */
+const buildCleanSearch = (
+  searchParams: URLSearchParams,
+  hashParams: URLSearchParams
+) => {
   const cleanParams = new URLSearchParams(searchParams);
   SENSITIVE_KEYS.forEach((key) => {
     cleanParams.delete(key);
@@ -48,7 +56,7 @@ const readInviteParams = () => {
     inviteToken,
     accessToken,
     hasSensitive: hasSensitiveParams(hashParams, searchParams),
-    cleanSearch: buildCleanSearch(searchParams)
+    cleanSearch: buildCleanSearch(searchParams, hashParams)
   };
 };
 

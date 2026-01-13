@@ -5,8 +5,26 @@ export type SupabaseResult<T> = {
   error: { message: string } | null;
 };
 
-export function createQuery<T>(result: SupabaseResult<T>) {
-  const query: Record<string, any> = {};
+type SupabaseQuery<T> = {
+  select: (...args: unknown[]) => SupabaseQuery<T>;
+  insert: (...args: unknown[]) => SupabaseQuery<T>;
+  upsert: (...args: unknown[]) => SupabaseQuery<T>;
+  update: (...args: unknown[]) => SupabaseQuery<T>;
+  delete: (...args: unknown[]) => SupabaseQuery<T>;
+  eq: (...args: unknown[]) => SupabaseQuery<T>;
+  is: (...args: unknown[]) => SupabaseQuery<T>;
+  order: (...args: unknown[]) => SupabaseQuery<T>;
+  limit: (...args: unknown[]) => SupabaseQuery<T>;
+  maybeSingle: () => Promise<SupabaseResult<T>>;
+  single: () => Promise<SupabaseResult<T>>;
+  then: (
+    resolve: (value: SupabaseResult<T>) => unknown,
+    reject: (reason?: unknown) => unknown
+  ) => Promise<unknown>;
+};
+
+export function createQuery<T>(result: SupabaseResult<T>): SupabaseQuery<T> {
+  const query = {} as SupabaseQuery<T>;
   const chain = () => query;
 
   query.select = vi.fn(chain);

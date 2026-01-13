@@ -116,11 +116,11 @@ export async function POST(request: Request) {
       householdId: result.householdId,
       memberId: result.memberId
     });
-    applyAuthCookies(response, authResult.session, request.url);
+    applyAuthCookies(response, authResult.session, request);
 
     return response;
   } catch (error) {
     const message = error instanceof Error ? error.message : "Unable to accept invite.";
-    return NextResponse.json({ error: message }, { status: 500 });
+    return jsonError(message, 500);
   }
 }

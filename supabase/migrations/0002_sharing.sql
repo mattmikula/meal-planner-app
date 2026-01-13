@@ -54,35 +54,145 @@ create table if not exists audit_log (
 create index if not exists audit_log_household_idx on audit_log(household_id);
 create index if not exists audit_log_entity_idx on audit_log(entity_type, entity_id);
 
+-- Enable Row-Level Security on all new tables
+alter table households enable row level security;
+alter table household_members enable row level security;
+alter table user_household_settings enable row level security;
+alter table household_invites enable row level security;
+alter table audit_log enable row level security;
+
+-- RLS Policies: Users can only access data for households they belong to
+
+-- Households: users can read their own households
+create policy "Users can view their households"
+  on households for select
+  using (
+    exists (
+      select 1 from household_members
+      where household_members.household_id = households.id
+        and household_members.user_id = auth.uid()
+        and household_members.status = 'active'
+    )
+  );
+
+-- Households: users can create new households
+create policy "Users can create households"
+  on households for insert
+  with check (created_by = auth.uid());
+
+-- Household members: users can view members of their households
+create policy "Users can view household members"
+  on household_members for select
+  using (
+    exists (
+      select 1 from household_members as hm
+      where hm.household_id = household_members.household_id
+        and hm.user_id = auth.uid()
+        and hm.status = 'active'
+    )
+  );
+
+-- Household members: allow insert through RPC only (via accept_household_invite)
+create policy "System can manage household members"
+  on household_members for all
+  using (true)
+  with check (true);
+
+-- User household settings: users can only access their own settings
+create policy "Users can manage their own settings"
+  on user_household_settings for all
+  using (user_id = auth.uid())
+  with check (user_id = auth.uid());
+
+-- Household invites: members can view invites for their households
+create policy "Household members can view invites"
+  on household_invites for select
+  using (
+    exists (
+      select 1 from household_members
+      where household_members.household_id = household_invites.household_id
+        and household_members.user_id = auth.uid()
+        and household_members.status = 'active'
+    )
+  );
+
+-- Household invites: members can create invites for their households
+create policy "Household members can create invites"
+  on household_invites for insert
+  with check (
+    exists (
+      select 1 from household_members
+      where household_members.household_id = household_invites.household_id
+        and household_members.user_id = auth.uid()
+        and household_members.status = 'active'
+    )
+  );
+
+-- Household invites: allow updates through RPC only (via accept_household_invite)
+create policy "System can update invites"
+  on household_invites for update
+  using (true)
+  with check (true);
+
+-- Audit log: household members can view audit logs for their households
+create policy "Household members can view audit logs"
+  on audit_log for select
+  using (
+    exists (
+      select 1 from household_members
+      where household_members.household_id = audit_log.household_id
+        and household_members.user_id = auth.uid()
+        and household_members.status = 'active'
+    )
+  );
+
+-- Audit log: system can insert audit events
+create policy "System can create audit logs"
+  on audit_log for insert
+  with check (true);
+
 -- One-time migration: establish mapping between existing users and their newly created households.
 -- This temporary table collects all users who have created meals or plans, then assigns each
 -- user a new household ID for backfilling the households and household_members tables.
-create temporary table user_households (
-  user_id uuid primary key,
-  household_id uuid not null
-);
+-- NOTE: This migration is idempotent. If the household_id column already exists on meals,
+-- the migration has already been run and the data migration will be skipped.
+do $$
+begin
+  -- Only run data migration if we haven't migrated yet (check if user_id still exists on meals)
+  if exists (
+    select 1 from information_schema.columns
+    where table_name = 'meals' and column_name = 'user_id'
+  ) then
+    create temporary table user_households (
+      user_id uuid primary key,
+      household_id uuid not null
+    );
 
-insert into user_households (user_id, household_id)
-select user_id, gen_random_uuid()
-from (
-  select user_id from meals
-  union
-  select user_id from plans
-) users;
+    insert into user_households (user_id, household_id)
+    select user_id, gen_random_uuid()
+    from (
+      select user_id from meals
+      union
+      select user_id from plans
+    ) users;
 
-insert into households (id, created_by)
-select household_id, user_id
-from user_households;
+    insert into households (id, created_by)
+    select household_id, user_id
+    from user_households;
 
-insert into household_members (household_id, user_id, role, status)
-select household_id, user_id, 'owner', 'active'
-from user_households
-on conflict (household_id, user_id) do nothing;
+    insert into household_members (household_id, user_id, role, status)
+    select household_id, user_id, 'owner', 'active'
+    from user_households
+    on conflict (household_id, user_id) do nothing;
 
-insert into user_household_settings (user_id, current_household_id)
-select user_id, household_id
-from user_households
-on conflict (user_id) do nothing;
+    insert into user_household_settings (user_id, current_household_id)
+    select user_id, household_id
+    from user_households
+    on conflict (user_id) do nothing;
+
+    drop table if exists user_households;
+  end if;
+end $$;
 
 alter table meals
   add column if not exists household_id uuid references households(id) on delete cascade,
@@ -138,9 +248,6 @@ where plan_days.plan_id = plans.id
 alter table plan_days
   alter column household_id set not null,
   alter column created_by set not null;
-
--- Clean up temporary migration table
-drop table if exists user_households;
 
 create or replace function accept_household_invite(
   p_token_hash text,

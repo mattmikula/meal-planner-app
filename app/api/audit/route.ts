@@ -58,14 +58,16 @@ export async function GET(request: Request) {
   try {
     const context = await ensureHouseholdContext(supabase, authResult.userId);
 
-    const baseQuery = supabase
+    let query = supabase
       .from("audit_log")
       .select("id, entity_type, entity_id, action, actor_user_id, created_at, summary")
       .eq("household_id", context.household.id)
       .order("created_at", { ascending: false })
       .limit(limit);
 
-    const query = entity ? baseQuery.eq("entity_type", entity) : baseQuery;
+    if (entity) {
+      query = query.eq("entity_type", entity);
+    }
 
     const { data, error } = await query;
 
@@ -76,7 +78,7 @@ export async function GET(request: Request) {
     const items = mapAuditRows(data as AuditRow[] | null);
 
     const response = NextResponse.json({ items });
-    applyAuthCookies(response, authResult.session, request.url);
+    applyAuthCookies(response, authResult.session, request);
 
     return response;
   } catch (error) {

@@ -51,7 +51,7 @@ export async function GET(request: Request) {
     const context = await ensureHouseholdContext(supabase, authResult.userId);
     const members = await fetchMembers(supabase, context.household.id);
     const response = NextResponse.json({ members: mapMembers(members) });
-    applyAuthCookies(response, authResult.session, request.url);
+    applyAuthCookies(response, authResult.session, request);
 
     return response;
   } catch (error) {

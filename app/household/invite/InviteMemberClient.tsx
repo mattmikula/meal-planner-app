@@ -6,6 +6,7 @@ import { useEffect, useMemo, useState, type FormEvent } from "react";
 
 import { createApiClient } from "@/lib/api/client";
 import { getApiErrorMessage } from "@/lib/api/errors";
+import { normalizeEmail } from "@/lib/utils/email";
 
 const pageStyle = {
   fontFamily: "system-ui",
@@ -27,8 +28,6 @@ const inputStyle = {
 const statusStyle = {
   marginTop: "1rem"
 } as const;
-
-const normalizeEmail = (value: string) => value.trim().toLowerCase();
 
 const SESSION_ERROR_MESSAGE = "Unable to confirm your session. Try again.";
 
