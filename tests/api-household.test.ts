@@ -17,7 +17,15 @@ const supabaseMocks = vi.hoisted(() => ({
 
 vi.mock("@/lib/auth/server", () => authMocks);
 
-vi.mock("@/lib/household/server", () => householdMocks);
+vi.mock("@/lib/household/server", async () => {
+  const actual = await vi.importActual<typeof import("@/lib/household/server")>(
+    "@/lib/household/server"
+  );
+  return {
+    ...actual,
+    ensureHouseholdContext: householdMocks.ensureHouseholdContext
+  };
+});
 
 vi.mock("@/lib/supabase/server", () => supabaseMocks);
 

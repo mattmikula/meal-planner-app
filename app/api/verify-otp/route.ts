@@ -1,27 +1,20 @@
 import { createClient } from "@supabase/supabase-js";
 import { NextResponse } from "next/server";
 
-import { setAuthCookies } from "@/lib/auth/server";
-
-type VerifyPayload = {
-  email?: string;
-  token?: string;
-};
+import { applyAuthCookies, jsonError, validateRequest } from "@/lib/api/helpers";
+import { verifyOtpSchema } from "@/lib/auth/server";
 
 export async function POST(request: Request) {
-  let payload: VerifyPayload = {};
-
+  let body: unknown;
   try {
-    payload = (await request.json()) as VerifyPayload;
+    body = await request.json();
   } catch {
-    return NextResponse.json({ error: "Invalid request body." }, { status: 400 });
+    return jsonError("Invalid request body.", 400);
   }
 
-  const email = payload.email?.trim();
-  const token = payload.token?.trim();
-
-  if (!email || !token) {
-    return NextResponse.json({ error: "Email and code are required." }, { status: 400 });
+  const validation = validateRequest(body, verifyOtpSchema);
+  if (!validation.success) {
+    return validation.response;
   }
 
   const url = process.env.NEXT_PUBLIC_SUPABASE_URL;
@@ -42,19 +35,19 @@ export async function POST(request: Request) {
   });
 
   const { data, error } = await supabase.auth.verifyOtp({
-    email,
-    token,
+    email: validation.data.email,
+    token: validation.data.token,
     type: "email"
   });
 
   if (error || !data.session || !data.user) {
-    return NextResponse.json({ error: "Invalid or expired code." }, { status: 401 });
+    return jsonError("Invalid or expired code.", 401);
   }
 
   const response = NextResponse.json({
     id: data.user.id,
     email: data.user.email
   });
-  setAuthCookies(response, data.session, { secure: new URL(request.url).protocol === "https:" });
+  applyAuthCookies(response, data.session, request);
   return response;
 }

@@ -1,7 +1,9 @@
 import "server-only";
 import type { Session } from "@supabase/supabase-js";
 import { NextResponse } from "next/server";
+import { z } from "zod";
 
+import type { components } from "@/lib/api/types";
 import {
   ACCESS_TOKEN_COOKIE,
   REFRESH_TOKEN_COOKIE,
@@ -27,6 +29,34 @@ type RefreshResult = {
   email: string | null;
   session: Session;
 };
+
+export const verifyOtpSchema = z
+  .any()
+  .superRefine((value, ctx) => {
+    if (!value || typeof value !== "object") {
+      ctx.addIssue({
+        code: z.ZodIssueCode.custom,
+        message: "Email and code are required."
+      });
+      return;
+    }
+
+    const email = typeof value.email === "string" ? value.email.trim() : "";
+    const token = typeof value.token === "string" ? value.token.trim() : "";
+
+    if (!email || !token) {
+      ctx.addIssue({
+        code: z.ZodIssueCode.custom,
+        message: "Email and code are required."
+      });
+    }
+  })
+  .transform((value) => ({
+    email: typeof value?.email === "string" ? value.email.trim() : "",
+    token: typeof value?.token === "string" ? value.token.trim() : ""
+  })) satisfies z.ZodType<components["schemas"]["VerifyOtpRequest"]>;
+
+export type VerifyOtpInput = z.infer<typeof verifyOtpSchema>;
 
 export function getBearerToken(request: Request) {
   const authHeader = request.headers.get("authorization");
