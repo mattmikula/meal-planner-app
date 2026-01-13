@@ -54,6 +54,9 @@ create table if not exists audit_log (
 create index if not exists audit_log_household_idx on audit_log(household_id);
 create index if not exists audit_log_entity_idx on audit_log(entity_type, entity_id);
 
+-- One-time migration: establish mapping between existing users and their newly created households.
+-- This temporary table collects all users who have created meals or plans, then assigns each
+-- user a new household ID for backfilling the households and household_members tables.
 create temporary table user_households (
   user_id uuid primary key,
   household_id uuid not null

@@ -169,6 +169,16 @@ describe("POST /api/household/invites", () => {
     expect(householdMocks.buildInviteUrl).toHaveBeenCalledWith("token-123");
   });
 
+  it("normalizes mixed-case email to lowercase", async () => {
+    const { insertQuery } = await setupCreateInviteSuccess("Ada@Example.com");
+
+    expect(insertQuery.insert).toHaveBeenCalledWith(
+      expect.objectContaining({
+        email: "ada@example.com"
+      })
+    );
+  });
+
   it("returns 500 when invite insert fails", async () => {
     const response = await setupCreateInviteInsertFailure();
 
