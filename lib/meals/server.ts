@@ -100,7 +100,8 @@ export async function createMeal(
   
   const meal = mapMeal(data as MealRow);
   
-  // Log audit event
+  // Log audit event (fire-and-forget for activity tracking)
+  // Errors are intentionally not checked as audit logging is best-effort
   await supabase.from("audit_log").insert({
     household_id: householdId,
     entity_type: "meal",
@@ -187,7 +188,8 @@ export async function updateMeal(
   
   const meal = mapMeal(data as MealRow);
   
-  // Log audit event
+  // Log audit event (fire-and-forget for activity tracking)
+  // Errors are intentionally not checked as audit logging is best-effort
   await supabase.from("audit_log").insert({
     household_id: householdId,
     entity_type: "meal",
@@ -231,7 +233,8 @@ export async function deleteMeal(
     throw new Error(error.message);
   }
   
-  // Log audit event
+  // Log audit event (fire-and-forget for activity tracking)
+  // Errors are intentionally not checked as audit logging is best-effort
   await supabase.from("audit_log").insert({
     household_id: householdId,
     entity_type: "meal",

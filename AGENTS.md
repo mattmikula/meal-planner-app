@@ -82,12 +82,13 @@
 - Keep migrations focused on schema changes (tables, columns, indexes, RLS policies) rather than procedural logic.
 
 ## Testing Guidelines
-- Tests use Vitest and live in `tests/` with `*.test.ts` naming.
-- Aim to cover API routes and edge cases (auth failures, invalid inputs).
-- Run `pnpm test` before opening a PR when touching server logic.
+- **Write tests alongside functionality**—new features should include corresponding tests
+- Tests use Vitest and live in `tests/` with `*.test.ts` naming
+- Aim to cover API routes and edge cases (auth failures, invalid inputs)
 - Keep each test to **1-2 asserts**
-- Test granularity: one test tests one thing.
-- Use shared setup code as needed.
+- Test granularity: one test tests one thing
+- Use shared setup code as needed
+- Run `pnpm test` before opening a PR when touching server logic
 
 ## Commit & Pull Request Guidelines
 - Commit messages are short, imperative, and sentence-case (e.g., "Add scaffold setup").
