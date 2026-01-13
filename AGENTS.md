@@ -24,6 +24,26 @@
 - Adhere to single responsibility principle.
 - When creating functions: keep arguments small; prefer primitive types
 
+## Input Validation
+- **OpenAPI spec is the source of truth**
+  - All request/response shapes defined in `docs/api/openapi.yaml`
+  - Run `pnpm codegen` after updating OpenAPI spec to regenerate types
+  - Generated types live in `lib/api/types.ts`
+- **Use Zod for runtime validation, constrained by OpenAPI**
+  - Define schemas in the server helper module (e.g., `lib/meals/server.ts`)
+  - Constrain schemas to match OpenAPI: `satisfies z.ZodType<components["schemas"]["SchemaName"]>`
+  - TypeScript will error if schema drifts from OpenAPI spec
+  - Export schemas for use in route handlers
+  - Use the `validateRequest` helper from `lib/api/helpers.ts` in routes
+- **Schema naming convention:**
+  - Create operations: `createEntitySchema`
+  - Update operations: `updateEntitySchema`
+  - Input types derived from schemas: `type CreateEntityInput = z.infer<typeof createEntitySchema>`
+- **Validation error handling:**
+  - `validateRequest` returns success/failure discriminated union
+  - Always return the first validation error to the client (clear, actionable feedback)
+  - Never expose internal errors or stack traces in validation messages
+
 ## Component Design Guidelines
 - Favor small, specialized components that do one thing well.
 - Extract reusable pieces early to keep route segments and pages focused.
@@ -42,6 +62,13 @@
     - `useCallback` for stable callbacks passed to memoized children.
   - Avoid passing freshly-created objects/functions deep into the tree unless it's harmless or localized.
 
+## API Route Design
+- **Routes are thin HTTP adapters**
+  - Handle HTTP concerns: parsing requests, auth, status codes, response formatting
+  - Delegate business logic, validation, and database operations to helper modules (e.g., `lib/meals/server.ts`)
+  - Typical route structure: auth → validate → business logic function → format response
+  - Keep routes focused and easy to read; complex logic belongs in testable helper functions
+
 ## Frontend/Backend Separation
 - Keep core business rules and validation on the backend so every client shares the same behavior.
 - Treat UI components as consumers of backend capabilities; avoid duplicating logic in the frontend.
@@ -55,12 +82,13 @@
 - Keep migrations focused on schema changes (tables, columns, indexes, RLS policies) rather than procedural logic.
 
 ## Testing Guidelines
-- Tests use Vitest and live in `tests/` with `*.test.ts` naming.
-- Aim to cover API routes and edge cases (auth failures, invalid inputs).
-- Run `pnpm test` before opening a PR when touching server logic.
+- **Write tests alongside functionality**—new features should include corresponding tests
+- Tests use Vitest and live in `tests/` with `*.test.ts` naming
+- Aim to cover API routes and edge cases (auth failures, invalid inputs)
 - Keep each test to **1-2 asserts**
-- Test granularity: one test tests one thing.
-- Use shared setup code as needed.
+- Test granularity: one test tests one thing
+- Use shared setup code as needed
+- Run `pnpm test` before opening a PR when touching server logic
 
 ## Commit & Pull Request Guidelines
 - Commit messages are short, imperative, and sentence-case (e.g., "Add scaffold setup").
@@ -74,3 +102,8 @@
 - Apply schema updates via `supabase/migrations/` before testing API routes.
 - Web auth uses email OTP verification with HttpOnly cookies; keep mobile clients on bearer tokens.
 - Only collect as much information as needed for the feature to work. Prefer not to collect something if we don't need it.
+
+
+# ExecPlans
+ 
+When writing complex features or significant refactors, use an ExecPlan (as described in .agent/PLANS.md) from design to implementation.
