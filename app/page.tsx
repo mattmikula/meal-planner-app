@@ -132,6 +132,7 @@ export default function HomePage() {
         <section>
           <p>Signed in as {userEmail}</p>
           <div style={{ display: "flex", alignItems: "center", gap: "1rem" }}>
+            <Link href="/meals">Manage meals</Link>
             <Link href="/household/invite">Invite a household member</Link>
             <button type="button" onClick={handleLogout}>
               Sign out
