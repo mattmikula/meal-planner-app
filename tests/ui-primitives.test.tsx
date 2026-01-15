@@ -71,6 +71,7 @@ test("Card applies the compact variant class", () => {
   render(<Card variant="compact">Card</Card>);
 
   const card = screen.getByText("Card");
+  expect(card).toHaveClass(cardStyles.card);
   expect(card).toHaveClass(cardStyles.compact);
 });
 
