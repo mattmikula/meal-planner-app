@@ -1,7 +1,7 @@
 // @vitest-environment jsdom
 import "@testing-library/jest-dom/vitest";
-import { render, screen } from "@testing-library/react";
-import { beforeEach, expect, test, vi } from "vitest";
+import { cleanup, render, screen } from "@testing-library/react";
+import { afterEach, beforeEach, expect, test, vi } from "vitest";
 import type { ReactNode } from "react";
 
 import AppNav from "@/app/ui/AppNav";
@@ -28,6 +28,10 @@ vi.mock("next/link", () => ({
   )
 }));
 
+afterEach(() => {
+  cleanup();
+});
+
 beforeEach(() => {
   mockUsePathname.mockReset();
 });
@@ -39,4 +43,33 @@ test("marks the active route in the nav", () => {
   const mealsLink = screen.getByRole("link", { name: "Meals" });
   expect(mealsLink).toHaveClass(styles.linkActive);
   expect(mealsLink).toHaveAttribute("aria-current", "page");
+});
+
+test("marks the home link active for the root path", () => {
+  mockUsePathname.mockReturnValue("/");
+  render(<AppNav />);
+
+  const homeLink = screen.getByRole("link", { name: "Home" });
+  expect(homeLink).toHaveClass(styles.linkActive);
+  expect(homeLink).toHaveAttribute("aria-current", "page");
+});
+
+test("does not set an active link when pathname is null", () => {
+  mockUsePathname.mockReturnValue(null);
+  render(<AppNav />);
+
+  const links = screen.getAllByRole("link");
+  links.forEach((link) => {
+    expect(link).not.toHaveClass(styles.linkActive);
+  });
+});
+
+test("does not mark unrelated paths as active", () => {
+  mockUsePathname.mockReturnValue("/settings");
+  render(<AppNav />);
+
+  const links = screen.getAllByRole("link");
+  links.forEach((link) => {
+    expect(link).not.toHaveClass(styles.linkActive);
+  });
 });
