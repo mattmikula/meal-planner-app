@@ -1,6 +1,5 @@
 "use client";
 
-import Link from "next/link";
 import { useRouter } from "next/navigation";
 import {
   useCallback,
@@ -11,6 +10,14 @@ import {
   type FormEvent
 } from "react";
 
+import AppNav from "@/app/ui/AppNav";
+import Button from "@/app/ui/Button";
+import Card from "@/app/ui/Card";
+import PageLayout from "@/app/ui/PageLayout";
+import TextArea from "@/app/ui/TextArea";
+import TextInput from "@/app/ui/TextInput";
+import formStyles from "@/app/ui/FormControls.module.css";
+import layoutStyles from "@/app/ui/Layout.module.css";
 import { createApiClient } from "@/lib/api/client";
 import { getApiErrorMessage } from "@/lib/api/errors";
 import type { components } from "@/lib/api/types";
@@ -21,64 +28,16 @@ import {
 
 type Meal = components["schemas"]["Meal"];
 
-const pageStyle = {
-  fontFamily: "system-ui",
-  padding: "2rem",
-  maxWidth: "720px"
-} as const;
-
-const sectionStyle = {
-  marginTop: "2rem"
-} as const;
-
-const labelStyle = {
-  display: "block",
-  marginBottom: "0.5rem"
-} as const;
-
-const inputStyle = {
-  padding: "0.5rem",
-  width: "100%",
-  marginBottom: "1rem"
-} as const;
-
-const textareaStyle = {
-  padding: "0.5rem",
-  width: "100%",
-  marginBottom: "1rem",
-  minHeight: "90px",
-  resize: "vertical"
-} as const;
-
-const actionsStyle = {
-  display: "flex",
-  gap: "0.75rem",
-  alignItems: "center",
-  flexWrap: "wrap"
-} as const;
-
-const listStyle = {
-  listStyle: "none",
-  margin: 0,
-  padding: 0
-} as const;
-
-const cardStyle = {
-  border: "1px solid #ddd",
-  borderRadius: "8px",
-  padding: "1rem",
-  marginBottom: "1rem"
-} as const;
-
-const mutedTextStyle = {
-  color: "#555"
-} as const;
-
-const statusStyle = {
-  marginTop: "1.5rem"
-} as const;
-
-const SESSION_ERROR_MESSAGE = "Unable to confirm your session. Try again.";
+enum MealsStatusMessage {
+  SessionError = "Unable to confirm your session. Try again.",
+  LoadFailed = "Unable to load meals.",
+  MealUpdated = "Meal updated.",
+  MealUpdateFailed = "Unable to update meal.",
+  MealAdded = "Meal added.",
+  MealAddFailed = "Unable to add meal.",
+  MealDeleted = "Meal deleted.",
+  MealDeleteFailed = "Unable to delete meal."
+}
 
 type MealFormProps = {
   name: string;
@@ -102,41 +61,43 @@ function MealForm({
   onCancel
 }: MealFormProps) {
   return (
-    <form onSubmit={onSubmit}>
-      <label htmlFor="meal-name" style={labelStyle}>
-        Meal name
-      </label>
-      <input
-        id="meal-name"
-        type="text"
-        value={name}
-        onChange={(event) => onNameChange(event.target.value)}
-        required
-        maxLength={200}
-        placeholder="Tacos"
-        style={inputStyle}
-      />
+    <form onSubmit={onSubmit} className={layoutStyles.stack}>
+      <div className={layoutStyles.stackSm}>
+        <label htmlFor="meal-name" className={formStyles.label}>
+          Meal name
+        </label>
+        <TextInput
+          id="meal-name"
+          type="text"
+          value={name}
+          onChange={(event) => onNameChange(event.target.value)}
+          required
+          maxLength={200}
+          placeholder="Tacos"
+        />
+      </div>
 
-      <label htmlFor="meal-notes" style={labelStyle}>
-        Notes (optional)
-      </label>
-      <textarea
-        id="meal-notes"
-        value={notes}
-        onChange={(event) => onNotesChange(event.target.value)}
-        maxLength={1000}
-        placeholder="Any swaps or reminders"
-        style={textareaStyle}
-      />
+      <div className={layoutStyles.stackSm}>
+        <label htmlFor="meal-notes" className={formStyles.label}>
+          Notes (optional)
+        </label>
+        <TextArea
+          id="meal-notes"
+          value={notes}
+          onChange={(event) => onNotesChange(event.target.value)}
+          maxLength={1000}
+          placeholder="Any swaps or reminders"
+        />
+      </div>
 
-      <div style={actionsStyle}>
-        <button type="submit" disabled={saving}>
+      <div className={layoutStyles.row}>
+        <Button type="submit" disabled={saving}>
           {saving ? "Saving..." : isEditing ? "Update meal" : "Add meal"}
-        </button>
+        </Button>
         {isEditing ? (
-          <button type="button" onClick={onCancel} disabled={saving}>
+          <Button type="button" variant="secondary" onClick={onCancel} disabled={saving}>
             Cancel edit
-          </button>
+          </Button>
         ) : null}
       </div>
     </form>
@@ -161,36 +122,42 @@ function MealList({
   onDelete
 }: MealListProps) {
   return (
-    <ul style={listStyle}>
+    <ul className={`${layoutStyles.stack} ${layoutStyles.list}`}>
       {meals.map((meal) => (
-        <li key={meal.id} style={cardStyle}>
-          <div style={actionsStyle}>
-            <div>
-              <strong>{meal.name}</strong>{" "}
-              {editingId === meal.id ? (
-                <span style={mutedTextStyle}>(editing)</span>
-              ) : null}
+        <li key={meal.id}>
+          <Card variant="compact" className={layoutStyles.stackSm}>
+            <div className={`${layoutStyles.row} ${layoutStyles.rowBetween}`}>
+              <div className={layoutStyles.stackSm}>
+                <div className={layoutStyles.row}>
+                  <strong>{meal.name}</strong>
+                  {editingId === meal.id ? (
+                    <span className={layoutStyles.textMuted}>(editing)</span>
+                  ) : null}
+                </div>
+                <p className={layoutStyles.textMuted}>
+                  {meal.notes && meal.notes.trim() ? meal.notes : "No notes yet."}
+                </p>
+              </div>
+              <div className={layoutStyles.row}>
+                <Button
+                  type="button"
+                  variant="ghost"
+                  onClick={() => onEdit(meal)}
+                  disabled={saving || deletingId === meal.id}
+                >
+                  Edit
+                </Button>
+                <Button
+                  type="button"
+                  variant="ghost"
+                  onClick={() => onDelete(meal.id)}
+                  disabled={saving || deletingId === meal.id}
+                >
+                  {deletingId === meal.id ? "Deleting..." : "Delete"}
+                </Button>
+              </div>
             </div>
-            <div style={actionsStyle}>
-              <button
-                type="button"
-                onClick={() => onEdit(meal)}
-                disabled={saving || deletingId === meal.id}
-              >
-                Edit
-              </button>
-              <button
-                type="button"
-                onClick={() => onDelete(meal.id)}
-                disabled={saving || deletingId === meal.id}
-              >
-                {deletingId === meal.id ? "Deleting..." : "Delete"}
-              </button>
-            </div>
-          </div>
-          <p style={mutedTextStyle}>
-            {meal.notes && meal.notes.trim() ? meal.notes : "No notes yet."}
-          </p>
+          </Card>
         </li>
       ))}
     </ul>
@@ -230,7 +197,7 @@ export default function MealsClient() {
       }
 
       if (!response?.ok || !data) {
-        setStatus(getApiErrorMessage(error) ?? "Unable to load meals.");
+        setStatus(getApiErrorMessage(error) ?? MealsStatusMessage.LoadFailed);
         return;
       }
 
@@ -239,7 +206,7 @@ export default function MealsClient() {
       }
     } catch {
       if (isMountedRef.current) {
-        setStatus("Unable to load meals.");
+        setStatus(MealsStatusMessage.LoadFailed);
       }
     } finally {
       if (isMountedRef.current) {
@@ -269,10 +236,10 @@ export default function MealsClient() {
           return;
         }
 
-        setStatus(SESSION_ERROR_MESSAGE);
+        setStatus(MealsStatusMessage.SessionError);
       } catch {
         if (isMounted) {
-          setStatus(SESSION_ERROR_MESSAGE);
+          setStatus(MealsStatusMessage.SessionError);
         }
       } finally {
         if (isMounted) {
@@ -332,12 +299,12 @@ export default function MealsClient() {
           if (!responsePayload.response?.ok || !responsePayload.data) {
             setStatus(
               getApiErrorMessage(responsePayload.error) ??
-                "Unable to update meal."
+                MealsStatusMessage.MealUpdateFailed
             );
             return;
           }
 
-          setStatus("Meal updated.");
+          setStatus(MealsStatusMessage.MealUpdated);
           resetForm();
           await loadMeals();
           return;
@@ -360,15 +327,19 @@ export default function MealsClient() {
         }
 
         if (!responsePayload.response?.ok || !responsePayload.data) {
-          setStatus(getApiErrorMessage(responsePayload.error) ?? "Unable to add meal.");
+          setStatus(getApiErrorMessage(responsePayload.error) ?? MealsStatusMessage.MealAddFailed);
           return;
         }
 
-        setStatus("Meal added.");
+        setStatus(MealsStatusMessage.MealAdded);
         resetForm();
         await loadMeals();
       } catch {
-        setStatus(editingId ? "Unable to update meal." : "Unable to add meal.");
+        setStatus(
+          editingId
+            ? MealsStatusMessage.MealUpdateFailed
+            : MealsStatusMessage.MealAddFailed
+        );
       } finally {
         setSaving(false);
       }
@@ -404,7 +375,7 @@ export default function MealsClient() {
         }
 
         if (!response?.ok || !data) {
-          setStatus(getApiErrorMessage(error) ?? "Unable to delete meal.");
+          setStatus(getApiErrorMessage(error) ?? MealsStatusMessage.MealDeleteFailed);
           return;
         }
 
@@ -412,10 +383,10 @@ export default function MealsClient() {
           resetForm();
         }
 
-        setStatus("Meal deleted.");
+        setStatus(MealsStatusMessage.MealDeleted);
         await loadMeals();
       } catch {
-        setStatus("Unable to delete meal.");
+        setStatus(MealsStatusMessage.MealDeleteFailed);
       } finally {
         setDeletingId(null);
       }
@@ -425,22 +396,22 @@ export default function MealsClient() {
 
   if (checkingSession) {
     return (
-      <main style={pageStyle}>
-        <h1>Meals</h1>
-        <p>Checking your session...</p>
-      </main>
+      <PageLayout title="Meals" size="wide" nav={<AppNav />}>
+        <Card>
+          <p>Checking your session...</p>
+        </Card>
+      </PageLayout>
     );
   }
 
   return (
-    <main style={pageStyle}>
-      <h1>Meals</h1>
-      <p>Manage the meals in your household list.</p>
-      <p>
-        <Link href="/">Back to home</Link>
-      </p>
-
-      <section style={sectionStyle}>
+    <PageLayout
+      title="Meals"
+      subtitle="Manage the meals in your household list."
+      size="wide"
+      nav={<AppNav />}
+    >
+      <Card className={layoutStyles.stack}>
         <h2>{editingId ? "Edit meal" : "Add a meal"}</h2>
         <MealForm
           name={formName}
@@ -452,13 +423,13 @@ export default function MealsClient() {
           onSubmit={handleSubmit}
           onCancel={handleCancel}
         />
-      </section>
+      </Card>
 
-      <section style={sectionStyle}>
+      <Card className={layoutStyles.stack}>
         <h2>Meal list</h2>
         {loadingMeals ? <p>Loading meals...</p> : null}
         {!loadingMeals && meals.length === 0 ? (
-          <p style={mutedTextStyle}>No meals yet. Add your first one above.</p>
+          <p className={layoutStyles.textMuted}>No meals yet. Add your first one above.</p>
         ) : null}
         {!loadingMeals && meals.length > 0 ? (
           <MealList
@@ -470,13 +441,13 @@ export default function MealsClient() {
             onDelete={handleDelete}
           />
         ) : null}
-      </section>
+      </Card>
 
       {status ? (
-        <p style={statusStyle} role="status" aria-live="polite">
+        <p className={layoutStyles.status} role="status" aria-live="polite">
           {status}
         </p>
       ) : null}
-    </main>
+    </PageLayout>
   );
 }

@@ -3,10 +3,27 @@
 import Link from "next/link";
 import { useEffect, useRef, useState } from "react";
 
+import AppNav from "@/app/ui/AppNav";
+import Card from "@/app/ui/Card";
+import PageLayout from "@/app/ui/PageLayout";
+import layoutStyles from "@/app/ui/Layout.module.css";
 import { createApiClient } from "@/lib/api/client";
 import { getApiErrorMessage } from "@/lib/api/errors";
 
-type InviteStatus = "idle" | "loading" | "accepted" | "needs-auth" | "error";
+enum InviteStatus {
+  Idle = "idle",
+  Loading = "loading",
+  Accepted = "accepted",
+  NeedsAuth = "needs-auth",
+  Error = "error"
+}
+
+enum InviteStatusMessage {
+  MissingToken = "Invite token is missing. Please open the invite link again.",
+  NeedsAuth = "Please sign in to accept this invite.",
+  AcceptFailed = "Unable to accept invite."
+}
+
 type InviteResult = { status: InviteStatus; message: string | null };
 
 // Supabase OAuth tokens that should be removed from URLs
@@ -15,9 +32,6 @@ const OAUTH_SENSITIVE_KEYS = ["access_token", "refresh_token"];
 const INVITE_TOKEN_KEY = "invite_token";
 // All sensitive keys to remove from URLs
 const SENSITIVE_KEYS = [...OAUTH_SENSITIVE_KEYS, INVITE_TOKEN_KEY];
-
-const MISSING_TOKEN_MESSAGE =
-  "Invite token is missing. Please open the invite link again.";
 
 const getParam = (
   hashParams: URLSearchParams,
@@ -107,19 +121,19 @@ const acceptInviteToken = async (
     });
 
     if (response?.ok) {
-      return { status: "accepted", message: null };
+      return { status: InviteStatus.Accepted, message: null };
     }
 
     if (response?.status === 401) {
-      return { status: "needs-auth", message: "Please sign in to accept this invite." };
+      return { status: InviteStatus.NeedsAuth, message: InviteStatusMessage.NeedsAuth };
     }
 
     return {
-      status: "error",
-      message: getApiErrorMessage(error) ?? "Unable to accept invite."
+      status: InviteStatus.Error,
+      message: getApiErrorMessage(error) ?? InviteStatusMessage.AcceptFailed
     };
   } catch {
-    return { status: "error", message: "Unable to accept invite." };
+    return { status: InviteStatus.Error, message: InviteStatusMessage.AcceptFailed };
   }
 };
 
@@ -172,7 +186,7 @@ const getInviteResult = (
 };
 
 export default function InviteClient() {
-  const [status, setStatus] = useState<InviteStatus>("idle");
+  const [status, setStatus] = useState<InviteStatus>(InviteStatus.Idle);
   const [message, setMessage] = useState<string | null>(null);
   const cacheRef = useRef<CachedInvite>(null);
 
@@ -194,14 +208,14 @@ export default function InviteClient() {
 
       if (!resolvedToken) {
         if (isMounted) {
-          setStatus("error");
-          setMessage(MISSING_TOKEN_MESSAGE);
+          setStatus(InviteStatus.Error);
+          setMessage(InviteStatusMessage.MissingToken);
         }
         return;
       }
 
       if (isMounted) {
-        setStatus("loading");
+        setStatus(InviteStatus.Loading);
       }
 
       const result = await getInviteResult(resolvedToken, accessToken, cacheRef);
@@ -221,28 +235,29 @@ export default function InviteClient() {
   }, []);
 
   return (
-    <main style={{ fontFamily: "system-ui", padding: "2rem", maxWidth: "520px" }}>
-      <h1>Meal Planner</h1>
-      {status === "idle" || status === "loading" ? (
-        <p>Accepting your invite...</p>
-      ) : null}
-      {status === "accepted" ? (
-        <p>
-          Your invite is accepted. You can return to the app.{" "}
-          <Link href="/">Back to home</Link>
-        </p>
-      ) : null}
-      {status === "needs-auth" ? (
-        <p>
-          {message} Sign in on the home page, then reopen the invite link.
-        </p>
-      ) : null}
-      {status === "needs-auth" || status === "error" ? (
-        <p>
-          <Link href="/">Back to home</Link>
-        </p>
-      ) : null}
-      {status === "error" ? <p>{message}</p> : null}
-    </main>
+    <PageLayout title="Meal Planner" size="narrow" nav={<AppNav />}>
+      <Card className={layoutStyles.stack}>
+        {status === InviteStatus.Idle || status === InviteStatus.Loading ? (
+          <p>Accepting your invite...</p>
+        ) : null}
+        {status === InviteStatus.Accepted ? (
+          <p>
+            Your invite is accepted. You can return to the app.{" "}
+            <Link href="/">Back to home</Link>
+          </p>
+        ) : null}
+        {status === InviteStatus.NeedsAuth ? (
+          <p>
+            {message} Sign in on the home page, then reopen the invite link.
+          </p>
+        ) : null}
+        {status === InviteStatus.NeedsAuth || status === InviteStatus.Error ? (
+          <p>
+            <Link href="/">Back to home</Link>
+          </p>
+        ) : null}
+        {status === InviteStatus.Error ? <p>{message}</p> : null}
+      </Card>
+    </PageLayout>
   );
 }

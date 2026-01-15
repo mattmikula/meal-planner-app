@@ -53,6 +53,13 @@
   - Prefer composable subcomponents over large "god components"/pages
   - Optimize for readability, testability, and single-responsibility
 
+## UI Styling & Components
+- Use CSS Modules for UI component styling; keep `app/globals.css` limited to tokens and base element resets.
+- Shared UI primitives live in `app/ui/` (e.g., `PageLayout`, `AppNav`, `Button`, `Card`, `TextInput`, `TextArea`).
+- Shared layout/form helpers live in `app/ui/Layout.module.css` and `app/ui/FormControls.module.css`.
+- UI tests use Vitest + React Testing Library with `// @vitest-environment jsdom` and `@testing-library/jest-dom/vitest`.
+- Prefer enums for UI status/message strings to avoid hard-coded literals scattered across components.
+
 ## Frontend Performance
 - **Actively consider re-rendering cost** when changing or adding UI
   - Use React DevTools / Profiler when behavior is unclear.

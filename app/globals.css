@@ -1,0 +1,122 @@
+:root {
+  color-scheme: light;
+  --color-bg: #f6f1e8;
+  --color-surface: #fffaf3;
+  --color-surface-strong: #ffffff;
+  --color-ink: #2b2620;
+  --color-muted: #5d5449;
+  --color-border: #e4d7ca;
+  --color-accent: #c86a1a;
+  --color-accent-strong: #a65613;
+  --color-accent-soft: #f4d1b4;
+  --color-focus: #1d7a6a;
+  --color-on-accent: #ffffff;
+  --color-surface-glass: rgba(255, 255, 255, 0.7);
+  --color-surface-glass-strong: rgba(255, 250, 243, 0.9);
+  --color-ink-alpha-20: rgba(43, 38, 32, 0.2);
+  --color-accent-alpha-20: rgba(200, 106, 26, 0.2);
+  --color-accent-alpha-30: rgba(200, 106, 26, 0.3);
+  --color-focus-alpha-12: rgba(29, 122, 106, 0.12);
+  --color-focus-alpha-35: rgba(29, 122, 106, 0.35);
+  --shadow-1: 0 14px 30px rgba(43, 38, 32, 0.12);
+  --shadow-2: 0 8px 16px rgba(43, 38, 32, 0.12);
+  --radius-sm: 10px;
+  --radius-md: 14px;
+  --radius-lg: 18px;
+  --space-1: 0.25rem;
+  --space-2: 0.5rem;
+  --space-3: 0.75rem;
+  --space-4: 1rem;
+  --space-5: 1.5rem;
+  --space-6: 2rem;
+  --space-7: 2.75rem;
+  --space-8: 3.5rem;
+}
+
+*,
+*::before,
+*::after {
+  box-sizing: border-box;
+}
+
+body {
+  margin: 0;
+  min-height: 100vh;
+  color: var(--color-ink);
+  font-family: var(--font-body, "Space Grotesk"), system-ui, -apple-system, sans-serif;
+  background:
+    radial-gradient(1200px 600px at 5% -10%, rgba(200, 106, 26, 0.22), transparent 60%),
+    radial-gradient(900px 500px at 95% 0%, rgba(29, 122, 106, 0.2), transparent 60%),
+    linear-gradient(180deg, #f6f1e8 0%, #efe6db 100%);
+  background-attachment: fixed;
+}
+
+main {
+  position: relative;
+  z-index: 1;
+}
+
+h1,
+h2,
+h3,
+h4,
+h5,
+h6 {
+  margin: 0;
+  font-family: var(--font-heading, "Fraunces"), "Times New Roman", serif;
+  letter-spacing: -0.02em;
+  color: var(--color-ink);
+}
+
+h1 {
+  font-size: clamp(2.2rem, 4vw, 3.2rem);
+}
+
+h2 {
+  font-size: clamp(1.4rem, 2.4vw, 2rem);
+}
+
+p {
+  margin: 0;
+  color: inherit;
+}
+
+a {
+  color: var(--color-accent-strong);
+  text-decoration: none;
+  font-weight: 600;
+}
+
+a:hover {
+  text-decoration: underline;
+}
+
+button,
+input,
+textarea {
+  font: inherit;
+  color: inherit;
+}
+
+button {
+  background: none;
+  border: none;
+  padding: 0;
+}
+
+img,
+svg {
+  display: block;
+  max-width: 100%;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  *,
+  *::before,
+  *::after {
+    animation-duration: 0.01ms !important;
+    animation-iteration-count: 1 !important;
+    transition-duration: 0.01ms !important;
+    scroll-behavior: auto !important;
+  }
+}
