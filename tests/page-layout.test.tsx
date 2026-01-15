@@ -2,7 +2,6 @@
 import "@testing-library/jest-dom/vitest";
 import { render, screen } from "@testing-library/react";
 import { expect, test } from "vitest";
-import React from "react";
 
 import PageLayout from "@/app/ui/PageLayout";
 import styles from "@/app/ui/PageLayout.module.css";

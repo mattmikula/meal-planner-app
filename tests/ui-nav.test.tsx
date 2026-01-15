@@ -3,7 +3,6 @@ import "@testing-library/jest-dom/vitest";
 import { render, screen } from "@testing-library/react";
 import { beforeEach, expect, test, vi } from "vitest";
 import type { ReactNode } from "react";
-import React from "react";
 
 import AppNav from "@/app/ui/AppNav";
 import styles from "@/app/ui/AppNav.module.css";

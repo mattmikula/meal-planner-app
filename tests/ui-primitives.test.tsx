@@ -2,7 +2,6 @@
 import "@testing-library/jest-dom/vitest";
 import { cleanup, render, screen } from "@testing-library/react";
 import { afterEach, expect, test } from "vitest";
-import React from "react";
 
 import Button from "@/app/ui/Button";
 import Card from "@/app/ui/Card";
