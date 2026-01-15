@@ -127,7 +127,7 @@ export default function HomePage() {
     setStatus(getApiErrorMessage(error) ?? HomeStatusMessage.SignOutFailed);
   };
 
-  const nav = userEmail ? <AppNav /> : undefined;
+  const nav = !checkingSession && userEmail ? <AppNav /> : undefined;
 
   if (checkingSession) {
     return (

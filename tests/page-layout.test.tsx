@@ -15,6 +15,6 @@ test("renders the nav shell when nav content is provided", () => {
   );
 
   const nav = screen.getByText("Nav content");
-  expect(nav.closest(`.${styles.shellNav}`)).not.toBeNull();
+  expect(nav.parentElement).toHaveClass(styles.shellNav);
   expect(document.querySelector(`.${styles.shell}`)).not.toBeNull();
 });
