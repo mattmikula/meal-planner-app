@@ -1,35 +1,29 @@
 "use client";
 
-import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { useEffect, useMemo, useState, type FormEvent } from "react";
 
+import AppNav from "@/app/ui/AppNav";
+import Button from "@/app/ui/Button";
+import Card from "@/app/ui/Card";
+import PageLayout from "@/app/ui/PageLayout";
+import TextInput from "@/app/ui/TextInput";
+import formStyles from "@/app/ui/FormControls.module.css";
+import layoutStyles from "@/app/ui/Layout.module.css";
 import { createApiClient } from "@/lib/api/client";
 import { getApiErrorMessage } from "@/lib/api/errors";
 import { normalizeEmail } from "@/lib/utils/email";
 
-const pageStyle = {
-  fontFamily: "system-ui",
-  padding: "2rem",
-  maxWidth: "520px"
-} as const;
-
-const labelStyle = {
-  display: "block",
-  marginBottom: "0.5rem"
-} as const;
-
-const inputStyle = {
-  padding: "0.5rem",
-  width: "100%",
-  marginBottom: "1rem"
-} as const;
-
-const statusStyle = {
-  marginTop: "1rem"
-} as const;
-
-const SESSION_ERROR_MESSAGE = "Unable to confirm your session. Try again.";
+enum InviteMemberStatusMessage {
+  SessionError = "Unable to confirm your session. Try again.",
+  EmailRequired = "Email is required.",
+  InviteFailed = "Unable to create invite link.",
+  InviteReady = "Invite link ready. Share it with your household member.",
+  ClipboardUnavailable = "Your browser does not support automatic copying. Please copy the invite link manually.",
+  ClipboardCopied = "Invite link copied to your clipboard.",
+  ClipboardDenied = "Permission to access the clipboard was denied. Please allow clipboard access or copy the invite link manually.",
+  ClipboardFailed = "Unable to copy the invite link automatically. Please copy it manually."
+}
 
 export default function InviteMemberClient() {
   const api = useMemo(() => createApiClient(), []);
@@ -57,10 +51,10 @@ export default function InviteMemberClient() {
           router.replace("/");
           return;
         }
-        setStatus(SESSION_ERROR_MESSAGE);
+        setStatus(InviteMemberStatusMessage.SessionError);
       } catch {
         if (isMounted) {
-          setStatus(SESSION_ERROR_MESSAGE);
+          setStatus(InviteMemberStatusMessage.SessionError);
         }
       } finally {
         if (isMounted) {
@@ -83,7 +77,7 @@ export default function InviteMemberClient() {
 
     const normalizedEmail = normalizeEmail(email);
     if (!normalizedEmail) {
-      setStatus("Email is required.");
+      setStatus(InviteMemberStatusMessage.EmailRequired);
       return;
     }
 
@@ -102,16 +96,16 @@ export default function InviteMemberClient() {
       }
 
       if (!response?.ok || !data) {
-        setStatus(getApiErrorMessage(error) ?? "Unable to create invite link.");
+        setStatus(getApiErrorMessage(error) ?? InviteMemberStatusMessage.InviteFailed);
         return;
       }
 
       setEmail("");
       setInviteUrl(data.inviteUrl);
-      setStatus("Invite link ready. Share it with your household member.");
+      setStatus(InviteMemberStatusMessage.InviteReady);
     } catch {
       setSending(false);
-      setStatus("Unable to create invite link.");
+      setStatus(InviteMemberStatusMessage.InviteFailed);
     }
   };
 
@@ -121,90 +115,89 @@ export default function InviteMemberClient() {
     }
 
     if (!navigator.clipboard?.writeText) {
-      setStatus(
-        "Your browser does not support automatic copying. Please copy the invite link manually."
-      );
+      setStatus(InviteMemberStatusMessage.ClipboardUnavailable);
       return;
     }
 
     try {
       await navigator.clipboard.writeText(inviteUrl);
-      setStatus("Invite link copied to your clipboard.");
+      setStatus(InviteMemberStatusMessage.ClipboardCopied);
     } catch (error) {
       if (
         error instanceof DOMException &&
         (error.name === "NotAllowedError" || error.name === "SecurityError")
       ) {
-        setStatus(
-          "Permission to access the clipboard was denied. Please allow clipboard access or copy the invite link manually."
-        );
+        setStatus(InviteMemberStatusMessage.ClipboardDenied);
       } else {
-        setStatus(
-          "Unable to copy the invite link automatically. Please copy it manually."
-        );
+        setStatus(InviteMemberStatusMessage.ClipboardFailed);
       }
     }
   };
 
   if (checkingSession) {
     return (
-      <main style={pageStyle}>
-        <h1>Invite a household member</h1>
-        <p>Checking your session...</p>
-      </main>
+      <PageLayout title="Invite a household member" size="narrow" nav={<AppNav />}>
+        <Card>
+          <p>Checking your session...</p>
+        </Card>
+      </PageLayout>
     );
   }
 
   return (
-    <main style={pageStyle}>
-      <h1>Invite a household member</h1>
-      <p>Create a shareable link to add someone to your household.</p>
+    <PageLayout
+      title="Invite a household member"
+      subtitle="Create a shareable link to add someone to your household."
+      size="narrow"
+      nav={<AppNav />}
+    >
+      <div className={layoutStyles.stackLg}>
+        <Card className={layoutStyles.stack}>
+          <form onSubmit={handleInvite} className={layoutStyles.stack}>
+            <div className={layoutStyles.stackSm}>
+              <label htmlFor="invite-email" className={formStyles.label}>
+                Email
+              </label>
+              <TextInput
+                id="invite-email"
+                type="email"
+                value={email}
+                onChange={(event) => setEmail(event.target.value)}
+                required
+                placeholder="member@example.com"
+              />
+            </div>
+            <Button type="submit" disabled={sending}>
+              {sending ? "Creating link..." : "Create invite link"}
+            </Button>
+          </form>
+        </Card>
 
-      <form onSubmit={handleInvite}>
-        <label htmlFor="invite-email" style={labelStyle}>
-          Email
-        </label>
-        <input
-          id="invite-email"
-          type="email"
-          value={email}
-          onChange={(event) => setEmail(event.target.value)}
-          required
-          placeholder="member@example.com"
-          style={inputStyle}
-        />
-        <button type="submit" disabled={sending}>
-          {sending ? "Creating link..." : "Create invite link"}
-        </button>
-      </form>
+        {inviteUrl ? (
+          <Card className={layoutStyles.stack}>
+            <div className={layoutStyles.stackSm}>
+              <label htmlFor="invite-link" className={formStyles.label}>
+                Shareable invite link
+              </label>
+              <TextInput id="invite-link" type="text" readOnly value={inviteUrl} />
+            </div>
+            <Button
+              type="button"
+              variant="secondary"
+              onClick={handleCopy}
+              aria-label="Copy invite link to clipboard"
+            >
+              Copy link
+            </Button>
+          </Card>
+        ) : null}
 
-      <p style={statusStyle}>
-        <Link href="/">Back to home</Link>
-      </p>
-
-      {inviteUrl ? (
-        <div style={statusStyle}>
-          <label htmlFor="invite-link" style={labelStyle}>
-            Shareable invite link
-          </label>
-          <input
-            id="invite-link"
-            type="text"
-            readOnly
-            value={inviteUrl}
-            style={inputStyle}
-          />
-          <button type="button" onClick={handleCopy} aria-label="Copy invite link to clipboard">
-            Copy link
-          </button>
-        </div>
-      ) : null}
-
-      {status ? (
-        <p style={statusStyle} role="status" aria-live="polite">
-          {status}
-        </p>
-      ) : null}
-    </main>
+        {status ? (
+          <p className={layoutStyles.status} role="status" aria-live="polite">
+            {status}
+          </p>
+        ) : null}
+      </div>
+    </PageLayout>
   );
 }

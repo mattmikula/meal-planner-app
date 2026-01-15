@@ -1,11 +1,24 @@
 "use client";
 
-import Link from "next/link";
 import { useEffect, useMemo, useState, type FormEvent } from "react";
 
+import AppNav from "@/app/ui/AppNav";
+import Button from "@/app/ui/Button";
+import Card from "@/app/ui/Card";
+import PageLayout from "@/app/ui/PageLayout";
+import TextInput from "@/app/ui/TextInput";
+import layoutStyles from "@/app/ui/Layout.module.css";
+import formStyles from "@/app/ui/FormControls.module.css";
 import { createApiClient } from "@/lib/api/client";
 import { getApiErrorMessage } from "@/lib/api/errors";
 import { createBrowserSupabaseClient } from "@/lib/supabase/browser";
+
+enum HomeStatusMessage {
+  SessionLoadFailed = "Unable to load your session. Try again.",
+  OtpSent = "Enter the code we emailed you.",
+  VerifyFailed = "Unable to verify the code. Try again.",
+  SignOutFailed = "Unable to sign out. Try again."
+}
 
 export default function HomePage() {
   const supabase = useMemo(() => createBrowserSupabaseClient(), []);
@@ -37,10 +50,10 @@ export default function HomePage() {
           setUserEmail(null);
           return;
         }
-        setStatus("Unable to load your session. Try again.");
+        setStatus(HomeStatusMessage.SessionLoadFailed);
       } catch {
         if (isMounted) {
-          setStatus("Unable to load your session. Try again.");
+          setStatus(HomeStatusMessage.SessionLoadFailed);
         }
       } finally {
         if (isMounted) {
@@ -73,7 +86,7 @@ export default function HomePage() {
     }
 
     setOtpSent(true);
-    setStatus("Enter the code we emailed you.");
+    setStatus(HomeStatusMessage.OtpSent);
   };
 
   const handleVerify = async (event: FormEvent<HTMLFormElement>) => {
@@ -89,7 +102,7 @@ export default function HomePage() {
       setVerifying(false);
 
       if (!response?.ok || !data) {
-        setStatus(getApiErrorMessage(error) ?? "Unable to verify the code. Try again.");
+        setStatus(getApiErrorMessage(error) ?? HomeStatusMessage.VerifyFailed);
         return;
       }
 
@@ -99,7 +112,7 @@ export default function HomePage() {
       setStatus(null);
     } catch {
       setVerifying(false);
-      setStatus("Unable to verify the code. Try again.");
+      setStatus(HomeStatusMessage.VerifyFailed);
     }
   };
 
@@ -111,82 +124,95 @@ export default function HomePage() {
       setOtpSent(false);
       return;
     }
-    setStatus(getApiErrorMessage(error) ?? "Unable to sign out. Try again.");
+    setStatus(getApiErrorMessage(error) ?? HomeStatusMessage.SignOutFailed);
   };
+
+  const nav = userEmail ? <AppNav /> : undefined;
 
   if (checkingSession) {
     return (
-      <main style={{ fontFamily: "system-ui", padding: "2rem", maxWidth: "520px" }}>
-        <h1>Meal Planner</h1>
-        <p>Loading your session...</p>
-      </main>
+      <PageLayout title="Meal Planner" size="narrow" nav={nav}>
+        <Card>
+          <p>Loading your session...</p>
+        </Card>
+      </PageLayout>
     );
   }
 
   return (
-    <main style={{ fontFamily: "system-ui", padding: "2rem", maxWidth: "520px" }}>
-      <h1>Meal Planner</h1>
-      {!userEmail ? <p>Sign in with a one-time code to continue.</p> : null}
+    <PageLayout title="Meal Planner" size="narrow" nav={nav}>
+      <div className={layoutStyles.stackLg}>
+        <Card className={layoutStyles.stack}>
+          {!userEmail ? <p>Sign in with a one-time code to continue.</p> : null}
 
-      {userEmail ? (
-        <section>
-          <p>Signed in as {userEmail}</p>
-          <div style={{ display: "flex", alignItems: "center", gap: "1rem" }}>
-            <Link href="/meals">Manage meals</Link>
-            <Link href="/household/invite">Invite a household member</Link>
-            <button type="button" onClick={handleLogout}>
-              Sign out
-            </button>
-          </div>
-        </section>
-      ) : (
-        <form onSubmit={handleLogin}>
-          <label htmlFor="email" style={{ display: "block", marginBottom: "0.5rem" }}>
-            Email
-          </label>
-          <input
-            id="email"
-            type="email"
-            value={email}
-            onChange={(event) => {
-              setEmail(event.target.value);
-              if (otpSent) {
-                setOtpSent(false);
-                setOtpCode("");
-              }
-            }}
-            required
-            placeholder="you@example.com"
-            style={{ padding: "0.5rem", width: "100%", marginBottom: "1rem" }}
-          />
-          <button type="submit" disabled={loading}>
-            {loading ? "Sending..." : "Send code"}
-          </button>
-        </form>
-      )}
+          {userEmail ? (
+            <div className={layoutStyles.stack}>
+              <p>Signed in as {userEmail}</p>
+              <p className={layoutStyles.textMuted}>
+                Use the navigation to manage meals and invites.
+              </p>
+              <Button type="button" variant="secondary" onClick={handleLogout}>
+                Sign out
+              </Button>
+            </div>
+          ) : (
+            <form onSubmit={handleLogin} className={layoutStyles.stack}>
+              <div className={layoutStyles.stackSm}>
+                <label htmlFor="email" className={formStyles.label}>
+                  Email
+                </label>
+                <TextInput
+                  id="email"
+                  type="email"
+                  value={email}
+                  onChange={(event) => {
+                    setEmail(event.target.value);
+                    if (otpSent) {
+                      setOtpSent(false);
+                      setOtpCode("");
+                    }
+                  }}
+                  required
+                  placeholder="you@example.com"
+                />
+              </div>
+              <Button type="submit" disabled={loading}>
+                {loading ? "Sending..." : "Send code"}
+              </Button>
+            </form>
+          )}
+        </Card>
 
-      {!userEmail && otpSent ? (
-        <form onSubmit={handleVerify} style={{ marginTop: "1rem" }}>
-          <label htmlFor="otp" style={{ display: "block", marginBottom: "0.5rem" }}>
-            Verification code
-          </label>
-          <input
-            id="otp"
-            autoComplete="one-time-code"
-            inputMode="numeric"
-            value={otpCode}
-            onChange={(event) => setOtpCode(event.target.value)}
-            required
-            placeholder="123456"
-            style={{ padding: "0.5rem", width: "100%", marginBottom: "1rem" }}
-          />
-          <button type="submit" disabled={verifying}>
-            {verifying ? "Verifying..." : "Verify code"}
-          </button>
-        </form>
-      ) : null}
+        {!userEmail && otpSent ? (
+          <Card className={layoutStyles.stack}>
+            <form onSubmit={handleVerify} className={layoutStyles.stack}>
+              <div className={layoutStyles.stackSm}>
+                <label htmlFor="otp" className={formStyles.label}>
+                  Verification code
+                </label>
+                <TextInput
+                  id="otp"
+                  autoComplete="one-time-code"
+                  inputMode="numeric"
+                  value={otpCode}
+                  onChange={(event) => setOtpCode(event.target.value)}
+                  required
+                  placeholder="123456"
+                />
+              </div>
+              <Button type="submit" disabled={verifying}>
+                {verifying ? "Verifying..." : "Verify code"}
+              </Button>
+            </form>
+          </Card>
+        ) : null}
 
-      {status ? <p style={{ marginTop: "1rem" }}>{status}</p> : null}
-    </main>
+        {status ? (
+          <p className={layoutStyles.status} role="status" aria-live="polite">
+            {status}
+          </p>
+        ) : null}
+      </div>
+    </PageLayout>
   );
 }
