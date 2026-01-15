@@ -20,8 +20,8 @@
 
 .input:focus-visible,
 .textarea:focus-visible {
-  outline: 3px solid rgba(29, 122, 106, 0.35);
+  outline: 3px solid var(--color-focus-alpha-35);
   outline-offset: 2px;
   border-color: var(--color-focus);
-  box-shadow: 0 0 0 3px rgba(29, 122, 106, 0.12);
+  box-shadow: 0 0 0 3px var(--color-focus-alpha-12);
 }

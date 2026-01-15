@@ -10,6 +10,14 @@
   --color-accent-strong: #a65613;
   --color-accent-soft: #f4d1b4;
   --color-focus: #1d7a6a;
+  --color-on-accent: #ffffff;
+  --color-surface-glass: rgba(255, 255, 255, 0.7);
+  --color-surface-glass-strong: rgba(255, 250, 243, 0.9);
+  --color-ink-alpha-20: rgba(43, 38, 32, 0.2);
+  --color-accent-alpha-20: rgba(200, 106, 26, 0.2);
+  --color-accent-alpha-30: rgba(200, 106, 26, 0.3);
+  --color-focus-alpha-12: rgba(29, 122, 106, 0.12);
+  --color-focus-alpha-35: rgba(29, 122, 106, 0.35);
   --shadow-1: 0 14px 30px rgba(43, 38, 32, 0.12);
   --shadow-2: 0 8px 16px rgba(43, 38, 32, 0.12);
   --radius-sm: 10px;
