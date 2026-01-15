@@ -797,7 +797,60 @@ export interface paths {
             path?: never;
             cookie?: never;
         };
-        get?: never;
+        /**
+         * Fetch weekly plan
+         * @description Returns a weekly plan for the household, creating it if missing.
+         */
+        get: {
+            parameters: {
+                query: {
+                    /** @description Week start date (Monday) in YYYY-MM-DD format. */
+                    weekStart: components["schemas"]["PlanWeekStart"];
+                };
+                header?: never;
+                path?: never;
+                cookie?: never;
+            };
+            requestBody?: never;
+            responses: {
+                /** @description Weekly plan. */
+                200: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["Plan"];
+                    };
+                };
+                /** @description Invalid request. */
+                400: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["Error"];
+                    };
+                };
+                /** @description Missing or invalid credentials. */
+                401: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["Error"];
+                    };
+                };
+                /** @description Plan lookup failed. */
+                500: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["Error"];
+                    };
+                };
+            };
+        };
         put?: never;
         post?: never;
         delete?: never;
@@ -929,6 +982,44 @@ export interface components {
         };
         MealsResponse: {
             meals: components["schemas"]["Meal"][];
+        };
+        /**
+         * Format: date
+         * @example 2024-02-12
+         */
+        PlanWeekStart: string;
+        PlanDay: {
+            /** Format: uuid */
+            id: string;
+            /** Format: uuid */
+            planId: string;
+            /** Format: date */
+            date: string;
+            /** Format: uuid */
+            mealId?: string | null;
+            locked: boolean;
+            /** Format: date-time */
+            createdAt: string;
+            /** Format: uuid */
+            createdBy: string;
+            /** Format: date-time */
+            updatedAt?: string | null;
+            /** Format: uuid */
+            updatedBy?: string | null;
+        };
+        Plan: {
+            /** Format: uuid */
+            id: string;
+            weekStart: components["schemas"]["PlanWeekStart"];
+            /** Format: date-time */
+            createdAt: string;
+            /** Format: uuid */
+            createdBy: string;
+            /** Format: date-time */
+            updatedAt?: string | null;
+            /** Format: uuid */
+            updatedBy?: string | null;
+            days: components["schemas"]["PlanDay"][];
         };
         CreateMealRequest: {
             name: string;
