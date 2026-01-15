@@ -574,9 +574,45 @@ paths:
                 $ref: "#/components/schemas/Error"
 
   /api/plans:
-    summary: Plans endpoints (placeholder)
-    description: Placeholder for plan fetch endpoints.
-    x-placeholder: true
+    get:
+      summary: Fetch weekly plan
+      description: Returns a weekly plan for the household, creating it if missing.
+      tags:
+        - Plans
+      security:
+        - bearerAuth: []
+      parameters:
+        - name: weekStart
+          in: query
+          description: Week start date (Monday) in YYYY-MM-DD format.
+          required: true
+          schema:
+            $ref: "#/components/schemas/PlanWeekStart"
+      responses:
+        "200":
+          description: Weekly plan.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Plan"
+        "400":
+          description: Invalid request.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Error"
+        "401":
+          description: Missing or invalid credentials.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Error"
+        "500":
+          description: Plan lookup failed.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Error"
 
   /api/plans/generate:
     summary: Plan generation endpoints (placeholder)
@@ -835,6 +871,85 @@ components:
           type: array
           items:
             $ref: "#/components/schemas/Meal"
+
+    PlanWeekStart:
+      type: string
+      format: date
+      pattern: "^\\d{4}-\\d{2}-\\d{2}$"
+      example: "2024-02-12"
+
+    PlanDay:
+      type: object
+      required:
+        - id
+        - planId
+        - date
+        - locked
+        - createdAt
+        - createdBy
+      properties:
+        id:
+          type: string
+          format: uuid
+        planId:
+          type: string
+          format: uuid
+        date:
+          type: string
+          format: date
+        mealId:
+          type: string
+          format: uuid
+          nullable: true
+        locked:
+          type: boolean
+        createdAt:
+          type: string
+          format: date-time
+        createdBy:
+          type: string
+          format: uuid
+        updatedAt:
+          type: string
+          format: date-time
+          nullable: true
+        updatedBy:
+          type: string
+          format: uuid
+          nullable: true
+
+    Plan:
+      type: object
+      required:
+        - id
+        - weekStart
+        - createdAt
+        - createdBy
+        - days
+      properties:
+        id:
+          type: string
+          format: uuid
+        weekStart:
+          $ref: "#/components/schemas/PlanWeekStart"
+        createdAt:
+          type: string
+          format: date-time
+        createdBy:
+          type: string
+          format: uuid
+        updatedAt:
+          type: string
+          format: date-time
+          nullable: true
+        updatedBy:
+          type: string
+          format: uuid
+          nullable: true
+        days:
+          type: array
+          items:
+            $ref: "#/components/schemas/PlanDay"
 
     CreateMealRequest:
       type: object
