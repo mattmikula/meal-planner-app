@@ -19,7 +19,8 @@ begin
       updated_at = p_generated_at,
       updated_by = p_user_id
   from jsonb_to_recordset(p_assignments) as a(id uuid, meal_id uuid)
-  where pd.id = a.id;
+  where pd.id = a.id
+    and pd.plan_id = p_plan_id;
 
   update plans
   set updated_at = p_generated_at,
