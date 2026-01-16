@@ -133,7 +133,7 @@ export default function HomePage() {
     return (
       <PageLayout title="Meal Planner" size="narrow" nav={nav}>
         <Card>
-          <p>Loading your session...</p>
+          <p>Loading your session…</p>
         </Card>
       </PageLayout>
     );
@@ -152,7 +152,7 @@ export default function HomePage() {
                 Use the navigation to manage meals and invites.
               </p>
               <Button type="button" variant="secondary" onClick={handleLogout}>
-                Sign out
+                Sign Out
               </Button>
             </div>
           ) : (
@@ -163,6 +163,7 @@ export default function HomePage() {
                 </label>
                 <TextInput
                   id="email"
+                  name="email"
                   type="email"
                   value={email}
                   onChange={(event) => {
@@ -172,12 +173,14 @@ export default function HomePage() {
                       setOtpCode("");
                     }
                   }}
+                  autoComplete="email"
+                  spellCheck={false}
                   required
-                  placeholder="you@example.com"
+                  placeholder="you@example.com…"
                 />
               </div>
               <Button type="submit" disabled={loading}>
-                {loading ? "Sending..." : "Send code"}
+                {loading ? "Sending…" : "Send Code"}
               </Button>
             </form>
           )}
@@ -192,16 +195,18 @@ export default function HomePage() {
                 </label>
                 <TextInput
                   id="otp"
+                  name="otp"
                   autoComplete="one-time-code"
                   inputMode="numeric"
                   value={otpCode}
                   onChange={(event) => setOtpCode(event.target.value)}
+                  spellCheck={false}
                   required
-                  placeholder="123456"
+                  placeholder="123456…"
                 />
               </div>
               <Button type="submit" disabled={verifying}>
-                {verifying ? "Verifying..." : "Verify code"}
+                {verifying ? "Verifying…" : "Verify Code"}
               </Button>
             </form>
           </Card>

@@ -237,26 +237,28 @@ export default function InviteClient() {
   return (
     <PageLayout title="Meal Planner" size="narrow" nav={<AppNav />}>
       <Card className={layoutStyles.stack}>
-        {status === InviteStatus.Idle || status === InviteStatus.Loading ? (
-          <p>Accepting your invite...</p>
-        ) : null}
-        {status === InviteStatus.Accepted ? (
-          <p>
-            Your invite is accepted. You can return to the app.{" "}
-            <Link href="/">Back to home</Link>
-          </p>
-        ) : null}
-        {status === InviteStatus.NeedsAuth ? (
-          <p>
-            {message} Sign in on the home page, then reopen the invite link.
-          </p>
-        ) : null}
-        {status === InviteStatus.NeedsAuth || status === InviteStatus.Error ? (
-          <p>
-            <Link href="/">Back to home</Link>
-          </p>
-        ) : null}
-        {status === InviteStatus.Error ? <p>{message}</p> : null}
+        <div role="status" aria-live="polite" className={layoutStyles.stackSm}>
+          {status === InviteStatus.Idle || status === InviteStatus.Loading ? (
+            <p>Accepting your invite…</p>
+          ) : null}
+          {status === InviteStatus.Accepted ? (
+            <p>
+              Your invite is accepted. You can return to the app.{" "}
+              <Link href="/">Back to Home</Link>
+            </p>
+          ) : null}
+          {status === InviteStatus.NeedsAuth ? (
+            <p>
+              {message} Sign in on the home page, then reopen the invite link.
+            </p>
+          ) : null}
+          {status === InviteStatus.NeedsAuth || status === InviteStatus.Error ? (
+            <p>
+              <Link href="/">Back to Home</Link>
+            </p>
+          ) : null}
+          {status === InviteStatus.Error ? <p>{message}</p> : null}
+        </div>
       </Card>
     </PageLayout>
   );
