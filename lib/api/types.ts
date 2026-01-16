@@ -868,7 +868,61 @@ export interface paths {
         };
         get?: never;
         put?: never;
-        post?: never;
+        /**
+         * Generate weekly plan
+         * @description Fills unlocked days in a weekly plan from the household meal pool.
+         */
+        post: {
+            parameters: {
+                query?: never;
+                header?: never;
+                path?: never;
+                cookie?: never;
+            };
+            requestBody: {
+                content: {
+                    "application/json": components["schemas"]["PlanGenerateRequest"];
+                };
+            };
+            responses: {
+                /** @description Generated weekly plan. */
+                200: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["Plan"];
+                    };
+                };
+                /** @description Invalid request or unable to generate plan. */
+                400: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["Error"];
+                    };
+                };
+                /** @description Missing or invalid credentials. */
+                401: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["Error"];
+                    };
+                };
+                /** @description Plan generation failed. */
+                500: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["Error"];
+                    };
+                };
+            };
+        };
         delete?: never;
         options?: never;
         head?: never;
@@ -988,6 +1042,9 @@ export interface components {
          * @example 2024-02-12
          */
         PlanWeekStart: string;
+        PlanGenerateRequest: {
+            weekStart: components["schemas"]["PlanWeekStart"];
+        };
         PlanDay: {
             /** Format: uuid */
             id: string;

@@ -11,6 +11,7 @@ export type Plan = components["schemas"]["Plan"];
 export type PlanFetchQuery = {
   weekStart: components["schemas"]["PlanWeekStart"];
 };
+export type PlanGenerateRequest = components["schemas"]["PlanGenerateRequest"];
 
 type PlanRow = {
   id: string;
@@ -31,6 +32,11 @@ type PlanDayRow = {
   created_by: string;
   updated_at: string | null;
   updated_by: string | null;
+};
+
+type MealRow = {
+  id: string;
+  name: string;
 };
 
 const WEEK_START_REQUIRED_MESSAGE = "Week start is required.";
@@ -110,6 +116,20 @@ export const planFetchQuerySchema = z.object({
   weekStart: planWeekStartSchema
 }) satisfies z.ZodType<PlanFetchQuery>;
 
+export const planGenerateRequestSchema = z.object({
+  weekStart: planWeekStartSchema
+}) satisfies z.ZodType<PlanGenerateRequest>;
+
+export class PlanGenerationError extends Error {
+  status: number;
+
+  constructor(message: string, status = 400) {
+    super(message);
+    this.name = "PlanGenerationError";
+    this.status = status;
+  }
+}
+
 export const normalizeWeekStart = (weekStart: string): string => {
   const parsed = parseDate(weekStart);
   if (!parsed) {
@@ -137,6 +157,41 @@ const buildWeekDates = (weekStart: string): string[] => {
     const date = new Date(Date.UTC(year, month, day + index));
     return formatDate(date);
   });
+};
+
+export type PlanDayAssignment = {
+  id: string;
+  mealId: string;
+};
+
+export const buildPlanDayAssignments = (
+  days: PlanDay[],
+  mealIds: string[]
+): PlanDayAssignment[] => {
+  if (mealIds.length === 0) {
+    throw new PlanGenerationError("No meals available to generate a plan.");
+  }
+
+  const unlockedDays = days.filter((day) => !day.locked);
+  if (unlockedDays.length === 0) {
+    return [];
+  }
+
+  const lockedMealIds = new Set(
+    days
+      .filter((day) => day.locked && day.mealId)
+      .map((day) => day.mealId as string)
+  );
+
+  let availableMealIds = mealIds.filter((mealId) => !lockedMealIds.has(mealId));
+  if (availableMealIds.length === 0) {
+    availableMealIds = mealIds;
+  }
+
+  return unlockedDays.map((day, index) => ({
+    id: day.id,
+    mealId: availableMealIds[index % availableMealIds.length]
+  }));
 };
 
 const mapPlanRow = (row: PlanRow): Omit<Plan, "days"> => ({
@@ -275,6 +330,24 @@ const fetchPlanDays = async (
   return days;
 };
 
+const fetchMealIds = async (
+  supabase: SupabaseClient,
+  householdId: string
+): Promise<string[]> => {
+  const { data, error } = await supabase
+    .from("meals")
+    .select("id, name")
+    .eq("household_id", householdId)
+    .order("name", { ascending: true })
+    .order("id", { ascending: true });
+
+  if (error) {
+    throw new Error(error.message);
+  }
+
+  return ((data ?? []) as MealRow[]).map((row) => row.id);
+};
+
 export async function fetchPlanForWeek(
   supabase: SupabaseClient,
   householdId: string,
@@ -302,4 +375,65 @@ export async function fetchPlanForWeek(
     ...mapPlanRow(planRow),
     days
   };
+}
+
+export async function generatePlanForWeek(
+  supabase: SupabaseClient,
+  householdId: string,
+  userId: string,
+  weekStart: string
+): Promise<Plan> {
+  const plan = await fetchPlanForWeek(supabase, householdId, userId, weekStart);
+  const mealIds = await fetchMealIds(supabase, householdId);
+  const hadMeals = plan.days.some((day) => Boolean(day.mealId));
+
+  const assignments = buildPlanDayAssignments(plan.days, mealIds);
+  if (assignments.length === 0) {
+    return plan;
+  }
+
+  const now = new Date().toISOString();
+
+  for (const assignment of assignments) {
+    const { error } = await supabase
+      .from("plan_days")
+      .update({
+        meal_id: assignment.mealId,
+        updated_at: now,
+        updated_by: userId
+      })
+      .eq("id", assignment.id);
+
+    if (error) {
+      throw new Error(error.message);
+    }
+  }
+
+  const { error: planError } = await supabase
+    .from("plans")
+    .update({
+      updated_at: now,
+      updated_by: userId
+    })
+    .eq("id", plan.id);
+
+  if (planError) {
+    throw new Error(planError.message);
+  }
+
+  const action = hadMeals ? "plan.regenerated" : "plan.generated";
+  void supabase.from("audit_log").insert({
+    household_id: householdId,
+    entity_type: "plan",
+    entity_id: plan.id,
+    action,
+    actor_user_id: userId,
+    summary: {
+      planId: plan.id,
+      weekStart: plan.weekStart
+    },
+    created_at: now
+  });
+
+  return fetchPlanForWeek(supabase, householdId, userId, plan.weekStart);
 }
