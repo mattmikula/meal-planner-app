@@ -164,6 +164,11 @@ export type PlanDayAssignment = {
   mealId: string;
 };
 
+type PlanGenerationAssignmentRow = {
+  id: string;
+  meal_id: string;
+};
+
 export const buildPlanDayAssignments = (
   days: PlanDay[],
   mealIds: string[]
@@ -348,6 +353,32 @@ const fetchMealIds = async (
   return ((data ?? []) as MealRow[]).map((row) => row.id);
 };
 
+const applyPlanGeneration = async (
+  supabase: SupabaseClient,
+  planId: string,
+  householdId: string,
+  userId: string,
+  generatedAt: string,
+  assignments: PlanDayAssignment[]
+) => {
+  const payload: PlanGenerationAssignmentRow[] = assignments.map((assignment) => ({
+    id: assignment.id,
+    meal_id: assignment.mealId
+  }));
+
+  const { error } = await supabase.rpc("apply_plan_generation", {
+    p_plan_id: planId,
+    p_household_id: householdId,
+    p_user_id: userId,
+    p_generated_at: generatedAt,
+    p_assignments: payload
+  });
+
+  if (error) {
+    throw new Error(error.message);
+  }
+};
+
 export async function fetchPlanForWeek(
   supabase: SupabaseClient,
   householdId: string,
@@ -393,33 +424,14 @@ export async function generatePlanForWeek(
   }
 
   const now = new Date().toISOString();
-
-  for (const assignment of assignments) {
-    const { error } = await supabase
-      .from("plan_days")
-      .update({
-        meal_id: assignment.mealId,
-        updated_at: now,
-        updated_by: userId
-      })
-      .eq("id", assignment.id);
-
-    if (error) {
-      throw new Error(error.message);
-    }
-  }
-
-  const { error: planError } = await supabase
-    .from("plans")
-    .update({
-      updated_at: now,
-      updated_by: userId
-    })
-    .eq("id", plan.id);
-
-  if (planError) {
-    throw new Error(planError.message);
-  }
+  await applyPlanGeneration(
+    supabase,
+    plan.id,
+    householdId,
+    userId,
+    now,
+    assignments
+  );
 
   const action = hadMeals ? "plan.regenerated" : "plan.generated";
   void supabase.from("audit_log").insert({

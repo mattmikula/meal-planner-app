@@ -42,6 +42,7 @@ vi.mock("@/lib/plans/server", async () => {
 vi.mock("@/lib/supabase/server", () => supabaseMocks);
 
 import { POST as generatePlan } from "@/app/api/plans/generate/route";
+import { PlanGenerationError } from "@/lib/plans/server";
 
 const householdContext = {
   household: {
@@ -160,6 +161,30 @@ describe("POST /api/plans/generate", () => {
 
     expect(response.status).toBe(200);
     expect(await response.json()).toEqual(samplePlan);
+  });
+
+  it("returns 400 when plan generation fails with a known error", async () => {
+    authMocks.requireApiUser.mockResolvedValue({
+      userId: "user-1",
+      email: "test@example.com"
+    });
+    householdMocks.ensureHouseholdContext.mockResolvedValue(householdContext);
+    supabaseMocks.createServerSupabaseClient.mockReturnValue({});
+    planMocks.generatePlanForWeek.mockRejectedValue(
+      new PlanGenerationError("No meals available to generate a plan.")
+    );
+
+    const response = await generatePlan(
+      new Request("https://localhost/api/plans/generate", {
+        method: "POST",
+        body: JSON.stringify({ weekStart: "2024-02-12" })
+      })
+    );
+
+    expect(response.status).toBe(400);
+    expect(await response.json()).toEqual({
+      error: "No meals available to generate a plan."
+    });
   });
 
   it("sets auth cookies when session exists", async () => {
