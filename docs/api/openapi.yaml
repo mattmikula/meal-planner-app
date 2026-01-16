@@ -615,9 +615,44 @@ paths:
                 $ref: "#/components/schemas/Error"
 
   /api/plans/generate:
-    summary: Plan generation endpoints (placeholder)
-    description: Placeholder for plan generation endpoints.
-    x-placeholder: true
+    post:
+      summary: Generate weekly plan
+      description: Fills unlocked days in a weekly plan from the household meal pool.
+      tags:
+        - Plans
+      security:
+        - bearerAuth: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/PlanGenerateRequest"
+      responses:
+        "200":
+          description: Generated weekly plan.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Plan"
+        "400":
+          description: Invalid request or unable to generate plan.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Error"
+        "401":
+          description: Missing or invalid credentials.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Error"
+        "500":
+          description: Plan generation failed.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Error"
 
 components:
   securitySchemes:
@@ -877,6 +912,14 @@ components:
       format: date
       pattern: "^\\d{4}-\\d{2}-\\d{2}$"
       example: "2024-02-12"
+
+    PlanGenerateRequest:
+      type: object
+      required:
+        - weekStart
+      properties:
+        weekStart:
+          $ref: "#/components/schemas/PlanWeekStart"
 
     PlanDay:
       type: object

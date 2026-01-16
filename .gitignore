@@ -42,6 +42,8 @@ docs/internal/*
 
 # claude code
 .claude/settings.local.json
+.claude/
+.codex/
 
 # vscode
 .vscode/
