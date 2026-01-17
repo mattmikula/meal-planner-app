@@ -239,7 +239,7 @@ export default function MealsClient() {
     return () => {
       isMounted = false;
     };
-  }, [loadMeals]);
+  }, [loadMeals, api, router]);
 
   const resetForm = useCallback(() => {
     setFormName("");
