@@ -20,6 +20,8 @@ tags:
     description: Household audit trail
   - name: Meals
     description: Meal management endpoints
+  - name: Plans
+    description: Weekly plan management endpoints
 
 paths:
   /api/health:
@@ -654,6 +656,102 @@ paths:
               schema:
                 $ref: "#/components/schemas/Error"
 
+  /api/plans/days/{dayId}:
+    patch:
+      summary: Update plan day
+      description: Lock/unlock a plan day or assign a different meal.
+      tags:
+        - Plans
+      security:
+        - bearerAuth: []
+      parameters:
+        - name: dayId
+          in: path
+          description: Plan day ID
+          required: true
+          schema:
+            type: string
+            format: uuid
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/UpdatePlanDayRequest"
+      responses:
+        "200":
+          description: Updated plan day.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/PlanDay"
+        "400":
+          description: Invalid request body.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Error"
+        "401":
+          description: Missing or invalid credentials.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Error"
+        "404":
+          description: Plan day not found.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Error"
+        "500":
+          description: Plan day update failed.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Error"
+
+  /api/plans/{planId}/regenerate:
+    post:
+      summary: Regenerate unlocked days
+      description: Regenerates meal assignments for all unlocked days in the plan.
+      tags:
+        - Plans
+      security:
+        - bearerAuth: []
+      parameters:
+        - name: planId
+          in: path
+          description: Plan ID
+          required: true
+          schema:
+            type: string
+            format: uuid
+      responses:
+        "200":
+          description: Regenerated plan.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Plan"
+        "401":
+          description: Missing or invalid credentials.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Error"
+        "404":
+          description: Plan not found.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Error"
+        "500":
+          description: Plan regeneration failed.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Error"
+
 components:
   securitySchemes:
     bearerAuth:
@@ -1027,3 +1125,16 @@ components:
         ok:
           type: boolean
           const: true
+
+    UpdatePlanDayRequest:
+      type: object
+      description: At least one field must be provided.
+      properties:
+        locked:
+          type: boolean
+          description: Whether the day is locked (preserves meal during regeneration)
+        mealId:
+          type: string
+          format: uuid
+          nullable: true
+          description: The meal to assign (null to clear)

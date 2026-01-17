@@ -120,6 +120,13 @@ export const planGenerateRequestSchema = z.object({
   weekStart: planWeekStartSchema
 }) satisfies z.ZodType<PlanGenerateRequest>;
 
+export type UpdatePlanDayRequest = components["schemas"]["UpdatePlanDayRequest"];
+
+export const updatePlanDayRequestSchema = z.object({
+  locked: z.boolean().optional(),
+  mealId: z.string().uuid().nullable().optional()
+}) satisfies z.ZodType<UpdatePlanDayRequest>;
+
 export class PlanGenerationError extends Error {
   status: number;
 
@@ -448,4 +455,222 @@ export async function generatePlanForWeek(
   });
 
   return fetchPlanForWeek(supabase, householdId, userId, plan.weekStart);
+}
+
+const fetchPlanDayRow = async (
+  supabase: SupabaseClient,
+  dayId: string,
+  householdId: string
+): Promise<PlanDayRow | null> => {
+  const { data, error } = await supabase
+    .from("plan_days")
+    .select("id, plan_id, date, meal_id, locked, created_at, created_by, updated_at, updated_by")
+    .eq("id", dayId)
+    .eq("household_id", householdId)
+    .maybeSingle();
+
+  if (error) {
+    throw new Error(error.message);
+  }
+
+  return data as PlanDayRow | null;
+};
+
+const validateMealOwnership = async (
+  supabase: SupabaseClient,
+  mealId: string,
+  householdId: string
+): Promise<void> => {
+  const { data, error } = await supabase
+    .from("meals")
+    .select("id")
+    .eq("id", mealId)
+    .eq("household_id", householdId)
+    .maybeSingle();
+
+  if (error) {
+    throw new Error(error.message);
+  }
+
+  if (!data) {
+    throw new PlanGenerationError("Meal not found or does not belong to household.", 400);
+  }
+};
+
+const updatePlanDayRow = async (
+  supabase: SupabaseClient,
+  dayId: string,
+  householdId: string,
+  userId: string,
+  updates: UpdatePlanDayRequest
+): Promise<PlanDayRow> => {
+  const now = new Date().toISOString();
+  const updateData: Partial<PlanDayRow> = {
+    updated_by: userId,
+    updated_at: now
+  };
+
+  if (updates.locked !== undefined) {
+    updateData.locked = updates.locked;
+  }
+
+  if (updates.mealId !== undefined) {
+    updateData.meal_id = updates.mealId;
+  }
+
+  const { data, error } = await supabase
+    .from("plan_days")
+    .update(updateData)
+    .eq("id", dayId)
+    .eq("household_id", householdId)
+    .select("id, plan_id, date, meal_id, locked, created_at, created_by, updated_at, updated_by")
+    .single();
+
+  if (error) {
+    throw new Error(error.message);
+  }
+
+  return data as PlanDayRow;
+};
+
+const logPlanDayAudit = (
+  supabase: SupabaseClient,
+  householdId: string,
+  userId: string,
+  dayId: string,
+  existingRow: PlanDayRow,
+  updatedRow: PlanDayRow,
+  updates: UpdatePlanDayRequest,
+  now: string
+): void => {
+  if (updates.locked !== undefined) {
+    const action = updates.locked ? "plan_day.locked" : "plan_day.unlocked";
+    void supabase.from("audit_log").insert({
+      household_id: householdId,
+      entity_type: "plan_day",
+      entity_id: dayId,
+      action,
+      actor_user_id: userId,
+      summary: {
+        planDayId: dayId,
+        planId: updatedRow.plan_id,
+        date: updatedRow.date,
+        mealId: updatedRow.meal_id
+      },
+      created_at: now
+    });
+  }
+
+  if (updates.mealId !== undefined && existingRow.meal_id !== updates.mealId) {
+    void supabase.from("audit_log").insert({
+      household_id: householdId,
+      entity_type: "plan_day",
+      entity_id: dayId,
+      action: "plan_day.swapped",
+      actor_user_id: userId,
+      summary: {
+        planDayId: dayId,
+        planId: updatedRow.plan_id,
+        date: updatedRow.date,
+        oldMealId: existingRow.meal_id,
+        newMealId: updates.mealId
+      },
+      created_at: now
+    });
+  }
+};
+
+export async function updatePlanDay(
+  supabase: SupabaseClient,
+  householdId: string,
+  userId: string,
+  dayId: string,
+  updates: UpdatePlanDayRequest
+): Promise<PlanDay | null> {
+  const existingRow = await fetchPlanDayRow(supabase, dayId, householdId);
+  if (!existingRow) {
+    return null;
+  }
+
+  if (updates.mealId !== undefined && updates.mealId !== null) {
+    await validateMealOwnership(supabase, updates.mealId, householdId);
+  }
+
+  const updatedRow = await updatePlanDayRow(supabase, dayId, householdId, userId, updates);
+  const now = new Date().toISOString();
+
+  logPlanDayAudit(supabase, householdId, userId, dayId, existingRow, updatedRow, updates, now);
+
+  return mapPlanDayRow(updatedRow);
+}
+
+const fetchPlanRowById = async (
+  supabase: SupabaseClient,
+  planId: string,
+  householdId: string
+): Promise<PlanRow | null> => {
+  const { data, error } = await supabase
+    .from("plans")
+    .select("id, week_start, created_at, created_by, updated_at, updated_by")
+    .eq("id", planId)
+    .eq("household_id", householdId)
+    .maybeSingle();
+
+  if (error) {
+    throw new Error(error.message);
+  }
+
+  return data as PlanRow | null;
+};
+
+const logPlanRegeneratedAudit = (
+  supabase: SupabaseClient,
+  householdId: string,
+  userId: string,
+  planId: string,
+  weekStart: string,
+  now: string
+): void => {
+  void supabase.from("audit_log").insert({
+    household_id: householdId,
+    entity_type: "plan",
+    entity_id: planId,
+    action: "plan.regenerated",
+    actor_user_id: userId,
+    summary: {
+      planId,
+      weekStart
+    },
+    created_at: now
+  });
+};
+
+export async function regeneratePlan(
+  supabase: SupabaseClient,
+  householdId: string,
+  userId: string,
+  planId: string
+): Promise<Plan | null> {
+  const planRow = await fetchPlanRowById(supabase, planId, householdId);
+  if (!planRow) {
+    return null;
+  }
+
+  const days = await fetchPlanDays(supabase, planRow.id, planRow.week_start);
+  const mealIds = await fetchMealIds(supabase, householdId);
+
+  const assignments = buildPlanDayAssignments(days, mealIds);
+  if (assignments.length === 0) {
+    return {
+      ...mapPlanRow(planRow),
+      days
+    };
+  }
+
+  const now = new Date().toISOString();
+  await applyPlanGeneration(supabase, planRow.id, householdId, userId, now, assignments);
+
+  logPlanRegeneratedAudit(supabase, householdId, userId, planRow.id, planRow.week_start, now);
+
+  return fetchPlanForWeek(supabase, householdId, userId, planRow.week_start);
 }
