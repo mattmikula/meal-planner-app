@@ -361,6 +361,7 @@ describe("regeneratePlan", () => {
       eq: vi.fn(() => planDaysSelectQuery),
       in: vi.fn(() => planDaysSelectQuery),
       order: vi.fn(() => planDaysSelectQuery),
+      maybeSingle: vi.fn(async () => ({ data: null, error: null })),
       then: (resolve, reject) =>
         Promise.resolve({ data: planDays, error: null }).then(resolve, reject)
     };
@@ -370,6 +371,7 @@ describe("regeneratePlan", () => {
       select: vi.fn(() => mealsSelectQuery),
       eq: vi.fn(() => mealsSelectQuery),
       order: vi.fn(() => mealsSelectQuery),
+      maybeSingle: vi.fn(async () => ({ data: null, error: null })),
       then: (resolve, reject) =>
         Promise.resolve({ data: meals, error: null }).then(resolve, reject)
     };
