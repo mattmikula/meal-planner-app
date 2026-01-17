@@ -7,7 +7,7 @@ export const metadata = {
 
 export default function ApiDocsPage() {
   return (
-    <main style={{ minHeight: "100vh" }}>
+    <main id="main-content" style={{ minHeight: "100vh" }}>
       <style>{"body { margin: 0; }"}</style>
       <Script
         src="https://cdn.redoc.ly/redoc/latest/bundles/redoc.standalone.js"

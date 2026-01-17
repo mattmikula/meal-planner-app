@@ -25,6 +25,7 @@ export default function PageLayout({
     <div className={nav ? styles.shell : undefined}>
       {nav ? <aside className={styles.shellNav}>{nav}</aside> : null}
       <main
+        id="main-content"
         className={[
           styles.page,
           sizeClass,

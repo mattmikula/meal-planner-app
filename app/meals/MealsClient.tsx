@@ -4,6 +4,7 @@ import { useRouter } from "next/navigation";
 import {
   useCallback,
   useEffect,
+  memo,
   useMemo,
   useRef,
   useState,
@@ -29,7 +30,6 @@ import {
 type Meal = components["schemas"]["Meal"];
 
 enum MealsStatusMessage {
-  SessionError = "Unable to confirm your session. Try again.",
   LoadFailed = "Unable to load meals.",
   MealUpdated = "Meal updated.",
   MealUpdateFailed = "Unable to update meal.",
@@ -50,7 +50,7 @@ type MealFormProps = {
   onCancel: () => void;
 };
 
-function MealForm({
+const MealForm = memo(function MealForm({
   name,
   notes,
   isEditing,
@@ -68,12 +68,14 @@ function MealForm({
         </label>
         <TextInput
           id="meal-name"
+          name="mealName"
           type="text"
           value={name}
           onChange={(event) => onNameChange(event.target.value)}
+          autoComplete="off"
           required
           maxLength={200}
-          placeholder="Tacos"
+          placeholder="Tacos…"
         />
       </div>
 
@@ -83,26 +85,28 @@ function MealForm({
         </label>
         <TextArea
           id="meal-notes"
+          name="mealNotes"
           value={notes}
           onChange={(event) => onNotesChange(event.target.value)}
+          autoComplete="off"
           maxLength={1000}
-          placeholder="Any swaps or reminders"
+          placeholder="Any swaps or reminders…"
         />
       </div>
 
       <div className={layoutStyles.row}>
         <Button type="submit" disabled={saving}>
-          {saving ? "Saving..." : isEditing ? "Update meal" : "Add meal"}
+          {saving ? "Saving…" : isEditing ? "Update Meal" : "Add Meal"}
         </Button>
         {isEditing ? (
           <Button type="button" variant="secondary" onClick={onCancel} disabled={saving}>
-            Cancel edit
+            Cancel Edit
           </Button>
         ) : null}
       </div>
     </form>
   );
-}
+});
 
 type MealListProps = {
   meals: Meal[];
@@ -113,7 +117,7 @@ type MealListProps = {
   onDelete: (mealId: string) => void;
 };
 
-function MealList({
+const MealList = memo(function MealList({
   meals,
   editingId,
   deletingId,
@@ -153,7 +157,7 @@ function MealList({
                   onClick={() => onDelete(meal.id)}
                   disabled={saving || deletingId === meal.id}
                 >
-                  {deletingId === meal.id ? "Deleting..." : "Delete"}
+                  {deletingId === meal.id ? "Deleting…" : "Delete"}
                 </Button>
               </div>
             </div>
@@ -162,7 +166,7 @@ function MealList({
       ))}
     </ul>
   );
-}
+});
 
 export default function MealsClient() {
   const api = useMemo(() => createApiClient(), []);
@@ -186,19 +190,23 @@ export default function MealsClient() {
   }, []);
 
   const loadMeals = useCallback(async () => {
-    setLoadingMeals(true);
+    if (isMountedRef.current) {
+      setLoadingMeals(true);
+    }
 
     try {
       const { data, error, response } = await api.GET("/api/meals");
 
       if (response?.status === 401) {
         router.replace("/");
-        return;
+        return false;
       }
 
       if (!response?.ok || !data) {
-        setStatus(getApiErrorMessage(error) ?? MealsStatusMessage.LoadFailed);
-        return;
+        if (isMountedRef.current) {
+          setStatus(getApiErrorMessage(error) ?? MealsStatusMessage.LoadFailed);
+        }
+        return true;
       }
 
       if (isMountedRef.current) {
@@ -213,47 +221,25 @@ export default function MealsClient() {
         setLoadingMeals(false);
       }
     }
+    return true;
   }, [api, router]);
 
   useEffect(() => {
     let isMounted = true;
 
-    const checkSession = async () => {
-      try {
-        const { response } = await api.GET("/api/me");
-        if (!isMounted) {
-          return;
-        }
-
-        if (response?.ok) {
-          setCheckingSession(false);
-          await loadMeals();
-          return;
-        }
-
-        if (response?.status === 401) {
-          router.replace("/");
-          return;
-        }
-
-        setStatus(MealsStatusMessage.SessionError);
-      } catch {
-        if (isMounted) {
-          setStatus(MealsStatusMessage.SessionError);
-        }
-      } finally {
-        if (isMounted) {
-          setCheckingSession(false);
-        }
+    const loadInitialMeals = async () => {
+      const authorized = await loadMeals();
+      if (isMounted && authorized) {
+        setCheckingSession(false);
       }
     };
 
-    checkSession();
+    loadInitialMeals();
 
     return () => {
       isMounted = false;
     };
-  }, [api, loadMeals, router]);
+  }, [loadMeals, api, router]);
 
   const resetForm = useCallback(() => {
     setFormName("");
@@ -398,7 +384,7 @@ export default function MealsClient() {
     return (
       <PageLayout title="Meals" size="wide" nav={<AppNav />}>
         <Card>
-          <p>Checking your session...</p>
+          <p>Checking your session…</p>
         </Card>
       </PageLayout>
     );
@@ -412,7 +398,7 @@ export default function MealsClient() {
       nav={<AppNav />}
     >
       <Card className={layoutStyles.stack}>
-        <h2>{editingId ? "Edit meal" : "Add a meal"}</h2>
+        <h2>{editingId ? "Edit Meal" : "Add a Meal"}</h2>
         <MealForm
           name={formName}
           notes={formNotes}
@@ -426,8 +412,8 @@ export default function MealsClient() {
       </Card>
 
       <Card className={layoutStyles.stack}>
-        <h2>Meal list</h2>
-        {loadingMeals ? <p>Loading meals...</p> : null}
+        <h2>Meal List</h2>
+        {loadingMeals ? <p>Loading meals…</p> : null}
         {!loadingMeals && meals.length === 0 ? (
           <p className={layoutStyles.textMuted}>No meals yet. Add your first one above.</p>
         ) : null}

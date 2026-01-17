@@ -25,7 +25,12 @@ export const metadata = {
 export default function RootLayout({ children }: { children: ReactNode }) {
   return (
     <html lang="en">
-      <body className={`${bodyFont.variable} ${headingFont.variable}`}>{children}</body>
+      <body className={`${bodyFont.variable} ${headingFont.variable}`}>
+        <a className="skipLink" href="#main-content">
+          Skip to main content
+        </a>
+        {children}
+      </body>
     </html>
   );
 }

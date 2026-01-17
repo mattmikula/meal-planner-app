@@ -1,7 +1,7 @@
 "use client";
 
 import { useRouter } from "next/navigation";
-import { useEffect, useMemo, useState, type FormEvent } from "react";
+import { useMemo, useState, type FormEvent } from "react";
 
 import AppNav from "@/app/ui/AppNav";
 import Button from "@/app/ui/Button";
@@ -15,7 +15,6 @@ import { getApiErrorMessage } from "@/lib/api/errors";
 import { normalizeEmail } from "@/lib/utils/email";
 
 enum InviteMemberStatusMessage {
-  SessionError = "Unable to confirm your session. Try again.",
   EmailRequired = "Email is required.",
   InviteFailed = "Unable to create invite link.",
   InviteReady = "Invite link ready. Share it with your household member.",
@@ -31,44 +30,7 @@ export default function InviteMemberClient() {
   const [email, setEmail] = useState("");
   const [status, setStatus] = useState<string | null>(null);
   const [inviteUrl, setInviteUrl] = useState<string | null>(null);
-  const [checkingSession, setCheckingSession] = useState(true);
   const [sending, setSending] = useState(false);
-
-  useEffect(() => {
-    let isMounted = true;
-
-    const checkSession = async () => {
-      try {
-        const { response } = await api.GET("/api/me");
-        if (!isMounted) {
-          return;
-        }
-        if (response?.ok) {
-          setCheckingSession(false);
-          return;
-        }
-        if (response?.status === 401) {
-          router.replace("/");
-          return;
-        }
-        setStatus(InviteMemberStatusMessage.SessionError);
-      } catch {
-        if (isMounted) {
-          setStatus(InviteMemberStatusMessage.SessionError);
-        }
-      } finally {
-        if (isMounted) {
-          setCheckingSession(false);
-        }
-      }
-    };
-
-    checkSession();
-
-    return () => {
-      isMounted = false;
-    };
-  }, [api, router]);
 
   const handleInvite = async (event: FormEvent<HTMLFormElement>) => {
     event.preventDefault();
@@ -134,19 +96,9 @@ export default function InviteMemberClient() {
     }
   };
 
-  if (checkingSession) {
-    return (
-      <PageLayout title="Invite a household member" size="narrow" nav={<AppNav />}>
-        <Card>
-          <p>Checking your session...</p>
-        </Card>
-      </PageLayout>
-    );
-  }
-
   return (
     <PageLayout
-      title="Invite a household member"
+      title="Invite a Household Member"
       subtitle="Create a shareable link to add someone to your household."
       size="narrow"
       nav={<AppNav />}
@@ -160,15 +112,18 @@ export default function InviteMemberClient() {
               </label>
               <TextInput
                 id="invite-email"
+                name="email"
                 type="email"
                 value={email}
                 onChange={(event) => setEmail(event.target.value)}
+                autoComplete="email"
+                spellCheck={false}
                 required
-                placeholder="member@example.com"
+                placeholder="member@example.com…"
               />
             </div>
             <Button type="submit" disabled={sending}>
-              {sending ? "Creating link..." : "Create invite link"}
+              {sending ? "Creating link…" : "Create Invite Link"}
             </Button>
           </form>
         </Card>
@@ -177,9 +132,16 @@ export default function InviteMemberClient() {
           <Card className={layoutStyles.stack}>
             <div className={layoutStyles.stackSm}>
               <label htmlFor="invite-link" className={formStyles.label}>
-                Shareable invite link
+                Shareable Invite Link
               </label>
-              <TextInput id="invite-link" type="text" readOnly value={inviteUrl} />
+              <TextInput
+                id="invite-link"
+                name="inviteLink"
+                type="text"
+                readOnly
+                autoComplete="off"
+                value={inviteUrl}
+              />
             </div>
             <Button
               type="button"
@@ -187,7 +149,7 @@ export default function InviteMemberClient() {
               onClick={handleCopy}
               aria-label="Copy invite link to clipboard"
             >
-              Copy link
+              Copy Link
             </Button>
           </Card>
         ) : null}

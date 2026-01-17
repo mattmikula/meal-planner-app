@@ -28,7 +28,9 @@ export default function AppNav() {
 
   return (
     <nav className={styles.nav} aria-label="Primary">
-      <div className={styles.brand}>Meal Planner</div>
+      <Link href="/" className={styles.brand}>
+        Meal Planner
+      </Link>
       <ul className={styles.list}>
         {NAV_ITEMS.map((item) => {
           const isActive = pathname ? isActivePath(pathname, item.href) : false;
