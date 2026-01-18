@@ -2,6 +2,7 @@ import { NextResponse } from "next/server";
 import { ZodError, type ZodSchema } from "zod";
 
 import { setAuthCookies } from "@/lib/auth/server";
+import { logger } from "@/lib/api/logger";
 import { normalizeEmail as normalizeEmailUtil } from "@/lib/utils/email";
 
 /**
@@ -9,6 +10,22 @@ import { normalizeEmail as normalizeEmailUtil } from "@/lib/utils/email";
  */
 export function jsonError(message: string, status: number) {
   return NextResponse.json({ error: message }, { status });
+}
+
+const INVALID_REQUEST_BODY_MESSAGE = "Invalid request body.";
+
+/**
+ * Parses a JSON request body and returns a standardized 400 response on failure.
+ */
+export async function parseJsonBody(
+  request: Request
+): Promise<{ success: true; data: unknown } | { success: false; response: NextResponse }> {
+  try {
+    const data = await request.json();
+    return { success: true, data };
+  } catch {
+    return { success: false, response: jsonError(INVALID_REQUEST_BODY_MESSAGE, 400) };
+  }
 }
 
 /**
@@ -25,10 +42,10 @@ export function validateRequest<T>(
   } catch (error) {
     if (error instanceof ZodError) {
       const firstError = error.issues[0];
-      const message = firstError?.message || "Invalid request body.";
+      const message = firstError?.message || INVALID_REQUEST_BODY_MESSAGE;
       return { success: false, response: jsonError(message, 400) };
     }
-    return { success: false, response: jsonError("Invalid request body.", 400) };
+    return { success: false, response: jsonError(INVALID_REQUEST_BODY_MESSAGE, 400) };
   }
 }
 
@@ -59,9 +76,9 @@ export function isSecureRequest(
     }
     // Header is present but has an unexpected value; treat as insecure rather than
     // falling back to the URL protocol to avoid ambiguous/misleading behavior.
-    console.warn(
-      `Unexpected X-Forwarded-Proto value "${forwardedProto}" (normalized: "${proto}"); treating request as insecure. ` +
-      "Check your reverse proxy or load balancer configuration."
+    logger.warn(
+      { forwardedProto, normalizedProto: proto },
+      "Unexpected X-Forwarded-Proto value; treating request as insecure. Check reverse proxy or load balancer configuration."
     );
     return false;
   }
@@ -89,6 +106,18 @@ export function applyAuthCookies(
   setAuthCookies(response, session, {
     secure: isSecureRequest(request.url, forwardedProto)
   });
+}
+
+/**
+ * Logs API errors with a consistent scope prefix and optional context.
+ */
+export function logApiError(
+  scope: string,
+  error: unknown,
+  context?: Record<string, unknown>
+) {
+  const payload = context ? { scope, err: error, ...context } : { scope, err: error };
+  logger.error(payload, "API error");
 }
 
 /**

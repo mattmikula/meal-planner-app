@@ -1,6 +1,12 @@
 import { NextResponse } from "next/server";
 
-import { applyAuthCookies, jsonError, validateRequest } from "@/lib/api/helpers";
+import {
+  applyAuthCookies,
+  jsonError,
+  logApiError,
+  parseJsonBody,
+  validateRequest
+} from "@/lib/api/helpers";
 import { requireApiUser } from "@/lib/auth/server";
 import { ensureHouseholdContext } from "@/lib/household/server";
 import {
@@ -16,14 +22,12 @@ export async function POST(request: Request) {
     return authResult.response;
   }
 
-  let body: unknown;
-  try {
-    body = await request.json();
-  } catch {
-    return jsonError("Invalid JSON body.", 400);
+  const bodyResult = await parseJsonBody(request);
+  if (!bodyResult.success) {
+    return bodyResult.response;
   }
 
-  const validation = validateRequest(body, planGenerateRequestSchema);
+  const validation = validateRequest(bodyResult.data, planGenerateRequestSchema);
   if (!validation.success) {
     return validation.response;
   }
@@ -45,7 +49,7 @@ export async function POST(request: Request) {
     if (error instanceof PlanGenerationError) {
       return jsonError(error.message, error.status);
     }
-    console.error("[plans] POST /generate error:", error instanceof Error ? error.message : error);
+    logApiError("plans POST /generate", error, { userId: authResult.userId });
     return jsonError("Unable to generate plan.", 500);
   }
 }

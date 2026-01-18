@@ -1,12 +1,26 @@
 import { beforeEach, describe, expect, it, vi } from "vitest";
 
-import { applyAuthCookies, isSecureRequest, jsonError } from "@/lib/api/helpers";
+const loggerMocks = vi.hoisted(() => ({
+  logger: {
+    error: vi.fn(),
+    warn: vi.fn()
+  }
+}));
 
 // Mock setAuthCookies from auth/server
 const mockSetAuthCookies = vi.fn();
 vi.mock("@/lib/auth/server", () => ({
   setAuthCookies: (...args: unknown[]) => mockSetAuthCookies(...args)
 }));
+vi.mock("@/lib/api/logger", () => loggerMocks);
+
+import {
+  applyAuthCookies,
+  isSecureRequest,
+  jsonError,
+  logApiError,
+  parseJsonBody
+} from "@/lib/api/helpers";
 
 describe("jsonError", () => {
   it("creates a JSON response with error message and status", async () => {
@@ -114,5 +128,63 @@ describe("applyAuthCookies", () => {
     applyAuthCookies(response, mockSession, request);
 
     expect(mockSetAuthCookies).toHaveBeenCalledWith(response, mockSession, { secure: true });
+  });
+});
+
+describe("parseJsonBody", () => {
+  it("returns parsed JSON on success", async () => {
+    const request = new Request("https://example.com/api", {
+      method: "POST",
+      body: JSON.stringify({ name: "Ada" })
+    });
+
+    const result = await parseJsonBody(request);
+
+    expect(result.success).toBe(true);
+    if (result.success) {
+      expect(result.data).toEqual({ name: "Ada" });
+    }
+  });
+
+  it("returns a 400 response on invalid JSON", async () => {
+    const request = new Request("https://example.com/api", {
+      method: "POST",
+      body: "invalid json"
+    });
+
+    const result = await parseJsonBody(request);
+
+    expect(result.success).toBe(false);
+    if (!result.success) {
+      expect(await result.response.json()).toEqual({ error: "Invalid request body." });
+    }
+  });
+});
+
+describe("logApiError", () => {
+  beforeEach(() => {
+    loggerMocks.logger.error.mockClear();
+  });
+
+  it("logs error payload with context", () => {
+    const error = new Error("boom");
+
+    logApiError("unit-test", error, { userId: "user-1" });
+
+    expect(loggerMocks.logger.error).toHaveBeenCalledWith(
+      { scope: "unit-test", err: error, userId: "user-1" },
+      "API error"
+    );
+  });
+
+  it("logs error payload without context", () => {
+    const error = new Error("boom");
+
+    logApiError("unit-test", error);
+
+    expect(loggerMocks.logger.error).toHaveBeenCalledWith(
+      { scope: "unit-test", err: error },
+      "API error"
+    );
   });
 });

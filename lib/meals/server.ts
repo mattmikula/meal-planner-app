@@ -1,7 +1,7 @@
 import "server-only";
 import { z } from "zod";
 
-import type { components } from "@/lib/api/types";
+import type { components, paths } from "@/lib/api/types";
 import { createServerSupabaseClient } from "@/lib/supabase/server";
 
 type SupabaseClient = ReturnType<typeof createServerSupabaseClient>;
@@ -25,6 +25,12 @@ type MealRow = {
   updated_at: string | null;
   updated_by: string | null;
 };
+
+export type MealIdParams = paths["/api/meals/{id}"]["patch"]["parameters"]["path"];
+
+export const mealIdParamSchema = z.object({
+  id: z.string().uuid("Meal ID must be a valid UUID.")
+}) satisfies z.ZodType<MealIdParams>;
 
 const mapMeal = (row: MealRow): Meal => ({
   id: row.id,

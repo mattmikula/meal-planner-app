@@ -3,6 +3,7 @@ import { createHash, randomBytes } from "node:crypto";
 import { z } from "zod";
 
 import type { components } from "@/lib/api/types";
+import { logger } from "@/lib/api/logger";
 import { createServerSupabaseClient } from "@/lib/supabase/server";
 import { normalizeEmail } from "@/lib/utils/email";
 
@@ -87,7 +88,10 @@ const VALIDATED_INVITE_BASE_URL = (() => {
     new URL(baseUrl);
     return baseUrl;
   } catch (e) {
-    console.error(`[STARTUP ERROR] Invalid INVITE_ACCEPT_URL_BASE: "${baseUrl}". Invite URL generation will fail.`, e);
+    logger.error(
+      { err: e, baseUrl },
+      "Invalid INVITE_ACCEPT_URL_BASE; invite URL generation will fail."
+    );
     return null;
   }
 })();

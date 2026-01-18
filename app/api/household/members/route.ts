@@ -1,6 +1,6 @@
 import { NextResponse } from "next/server";
 
-import { applyAuthCookies, jsonError } from "@/lib/api/helpers";
+import { applyAuthCookies, jsonError, logApiError } from "@/lib/api/helpers";
 import { requireApiUser } from "@/lib/auth/server";
 import { ensureHouseholdContext, listHouseholdMembers } from "@/lib/household/server";
 import { createServerSupabaseClient } from "@/lib/supabase/server";
@@ -22,7 +22,7 @@ export async function GET(request: Request) {
     return response;
   } catch (error) {
     // Log internal error details but return generic message to avoid leaking internals
-    console.error("[household-members] Error:", error instanceof Error ? error.message : error);
+    logApiError("household members GET", error, { userId: authResult.userId });
     return jsonError("Unable to load members.", 500);
   }
 }

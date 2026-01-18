@@ -1,6 +1,11 @@
 import { NextResponse } from "next/server";
 
-import { applyAuthCookies, jsonError, validateRequest } from "@/lib/api/helpers";
+import {
+  applyAuthCookies,
+  jsonError,
+  logApiError,
+  validateRequest
+} from "@/lib/api/helpers";
 import { requireApiUser } from "@/lib/auth/server";
 import { ensureHouseholdContext } from "@/lib/household/server";
 import { fetchPlanForWeek, planFetchQuerySchema } from "@/lib/plans/server";
@@ -33,7 +38,7 @@ export async function GET(request: Request) {
     applyAuthCookies(response, authResult.session, request);
     return response;
   } catch (error) {
-    console.error("[plans] GET error:", error instanceof Error ? error.message : error);
+    logApiError("plans GET", error, { userId: authResult.userId });
     return jsonError("Unable to load plan.", 500);
   }
 }

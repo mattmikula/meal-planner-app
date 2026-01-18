@@ -1,7 +1,7 @@
 import "server-only";
 import { z } from "zod";
 
-import type { components } from "@/lib/api/types";
+import type { components, paths } from "@/lib/api/types";
 import { createServerSupabaseClient } from "@/lib/supabase/server";
 
 type SupabaseClient = ReturnType<typeof createServerSupabaseClient>;
@@ -13,6 +13,7 @@ export type PlanFetchQuery = {
 };
 export type PlanGenerateRequest = components["schemas"]["PlanGenerateRequest"];
 export type UpdatePlanDayRequest = components["schemas"]["UpdatePlanDayRequest"];
+export type PlanDayIdParams = paths["/api/plans/days/{id}"]["patch"]["parameters"]["path"];
 
 type PlanRow = {
   id: string;
@@ -120,6 +121,10 @@ export const planFetchQuerySchema = z.object({
 export const planGenerateRequestSchema = z.object({
   weekStart: planWeekStartSchema
 }) satisfies z.ZodType<PlanGenerateRequest>;
+
+export const planDayIdParamSchema = z.object({
+  id: z.string().uuid("Plan day ID must be a valid UUID.")
+}) satisfies z.ZodType<PlanDayIdParams>;
 
 export const updatePlanDaySchema = z.object({
   mealId: z.string().uuid("Meal ID must be a valid UUID.").nullable().optional(),

@@ -66,11 +66,13 @@ const authSession = {
   expires_in: 3600
 };
 
+const planDayId = "33333333-3333-4333-8333-333333333333";
+
 const samplePlanDay = {
-  id: "plan-day-1",
-  planId: "plan-1",
+  id: planDayId,
+  planId: "44444444-4444-4444-8444-444444444444",
   date: "2024-02-12",
-  mealId: "meal-1",
+  mealId: "55555555-5555-4555-8555-555555555555",
   locked: true,
   createdAt: "2024-02-10T09:00:00Z",
   createdBy: "user-1",
@@ -83,6 +85,24 @@ beforeEach(() => {
 });
 
 describe("PATCH /api/plans/days/[id]", () => {
+  it("returns 400 when plan day id is invalid", async () => {
+    authMocks.requireApiUser.mockResolvedValue({
+      userId: "user-1",
+      email: "test@example.com"
+    });
+
+    const response = await patchPlanDay(
+      new Request("https://localhost/api/plans/days/not-a-uuid", {
+        method: "PATCH",
+        body: JSON.stringify({ locked: true })
+      }),
+      { params: { id: "not-a-uuid" } }
+    );
+
+    expect(response.status).toBe(400);
+    expect(await response.json()).toEqual({ error: "Plan day ID must be a valid UUID." });
+  });
+
   it("returns unauthorized when auth fails", async () => {
     const unauthorizedResponse = new Response(
       JSON.stringify({ error: "Unauthorized" }),
@@ -91,11 +111,11 @@ describe("PATCH /api/plans/days/[id]", () => {
     authMocks.requireApiUser.mockResolvedValue({ response: unauthorizedResponse });
 
     const response = await patchPlanDay(
-      new Request("https://localhost/api/plans/days/plan-day-1", {
+      new Request(`https://localhost/api/plans/days/${planDayId}`, {
         method: "PATCH",
         body: JSON.stringify({ locked: true })
       }),
-      { params: { id: "plan-day-1" } }
+      { params: { id: planDayId } }
     );
 
     expect(response).toBe(unauthorizedResponse);
@@ -108,11 +128,11 @@ describe("PATCH /api/plans/days/[id]", () => {
     });
 
     const response = await patchPlanDay(
-      new Request("https://localhost/api/plans/days/plan-day-1", {
+      new Request(`https://localhost/api/plans/days/${planDayId}`, {
         method: "PATCH",
         body: "invalid json"
       }),
-      { params: { id: "plan-day-1" } }
+      { params: { id: planDayId } }
     );
 
     expect(response.status).toBe(400);
@@ -125,11 +145,11 @@ describe("PATCH /api/plans/days/[id]", () => {
     });
 
     const response = await patchPlanDay(
-      new Request("https://localhost/api/plans/days/plan-day-1", {
+      new Request(`https://localhost/api/plans/days/${planDayId}`, {
         method: "PATCH",
         body: JSON.stringify({})
       }),
-      { params: { id: "plan-day-1" } }
+      { params: { id: planDayId } }
     );
 
     expect(await response.json()).toEqual({
@@ -147,11 +167,11 @@ describe("PATCH /api/plans/days/[id]", () => {
     planMocks.updatePlanDay.mockResolvedValue(null);
 
     const response = await patchPlanDay(
-      new Request("https://localhost/api/plans/days/plan-day-1", {
+      new Request(`https://localhost/api/plans/days/${planDayId}`, {
         method: "PATCH",
         body: JSON.stringify({ locked: true })
       }),
-      { params: { id: "plan-day-1" } }
+      { params: { id: planDayId } }
     );
 
     expect(response.status).toBe(404);
@@ -167,11 +187,11 @@ describe("PATCH /api/plans/days/[id]", () => {
     planMocks.updatePlanDay.mockRejectedValue(new PlanMutationError("Meal not found.", 404));
 
     const response = await patchPlanDay(
-      new Request("https://localhost/api/plans/days/plan-day-1", {
+      new Request(`https://localhost/api/plans/days/${planDayId}`, {
         method: "PATCH",
-        body: JSON.stringify({ mealId: "00000000-0000-0000-0000-000000000000" })
+        body: JSON.stringify({ mealId: "aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaaa" })
       }),
-      { params: { id: "plan-day-1" } }
+      { params: { id: planDayId } }
     );
 
     expect(response.status).toBe(404);
@@ -187,11 +207,11 @@ describe("PATCH /api/plans/days/[id]", () => {
     planMocks.updatePlanDay.mockResolvedValue(samplePlanDay);
 
     const response = await patchPlanDay(
-      new Request("https://localhost/api/plans/days/plan-day-1", {
+      new Request(`https://localhost/api/plans/days/${planDayId}`, {
         method: "PATCH",
         body: JSON.stringify({ locked: true })
       }),
-      { params: { id: "plan-day-1" } }
+      { params: { id: planDayId } }
     );
 
     expect(await response.json()).toEqual(samplePlanDay);
@@ -208,18 +228,18 @@ describe("PATCH /api/plans/days/[id]", () => {
     planMocks.updatePlanDay.mockResolvedValue(samplePlanDay);
 
     await patchPlanDay(
-      new Request("https://localhost/api/plans/days/plan-day-1", {
+      new Request(`https://localhost/api/plans/days/${planDayId}`, {
         method: "PATCH",
         body: JSON.stringify({ locked: true })
       }),
-      { params: { id: "plan-day-1" } }
+      { params: { id: planDayId } }
     );
 
     expect(planMocks.updatePlanDay).toHaveBeenCalledWith(
       supabase,
       "household-1",
       "user-1",
-      "plan-day-1",
+      planDayId,
       { locked: true }
     );
   });
@@ -235,11 +255,11 @@ describe("PATCH /api/plans/days/[id]", () => {
     planMocks.updatePlanDay.mockResolvedValue(samplePlanDay);
 
     await patchPlanDay(
-      new Request("https://localhost/api/plans/days/plan-day-1", {
+      new Request(`https://localhost/api/plans/days/${planDayId}`, {
         method: "PATCH",
         body: JSON.stringify({ locked: true })
       }),
-      { params: { id: "plan-day-1" } }
+      { params: { id: planDayId } }
     );
 
     expect(authMocks.setAuthCookies).toHaveBeenCalledTimes(1);

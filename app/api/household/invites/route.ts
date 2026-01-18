@@ -1,6 +1,12 @@
 import { NextResponse } from "next/server";
 
-import { applyAuthCookies, jsonError, validateRequest } from "@/lib/api/helpers";
+import {
+  applyAuthCookies,
+  jsonError,
+  logApiError,
+  parseJsonBody,
+  validateRequest
+} from "@/lib/api/helpers";
 import { requireApiUser } from "@/lib/auth/server";
 import {
   ensureHouseholdContext,
@@ -16,14 +22,12 @@ export async function POST(request: Request) {
     return authResult.response;
   }
 
-  let body: unknown;
-  try {
-    body = await request.json();
-  } catch {
-    return jsonError("Invalid request body.", 400);
+  const bodyResult = await parseJsonBody(request);
+  if (!bodyResult.success) {
+    return bodyResult.response;
   }
 
-  const validation = validateRequest(body, createHouseholdInviteSchema);
+  const validation = validateRequest(bodyResult.data, createHouseholdInviteSchema);
   if (!validation.success) {
     return validation.response;
   }
@@ -49,7 +53,7 @@ export async function POST(request: Request) {
       return jsonError("Invite URL configuration is missing or invalid.", 500);
     }
     // Log internal error details but return generic message to avoid leaking internals
-    console.error("[create-invite] Error:", error instanceof Error ? error.message : error);
+    logApiError("household invites POST", error, { userId: authResult.userId });
     return jsonError("Unable to create invite.", 500);
   }
 }

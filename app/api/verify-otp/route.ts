@@ -1,18 +1,16 @@
 import { createClient } from "@supabase/supabase-js";
 import { NextResponse } from "next/server";
 
-import { applyAuthCookies, jsonError, validateRequest } from "@/lib/api/helpers";
+import { applyAuthCookies, jsonError, parseJsonBody, validateRequest } from "@/lib/api/helpers";
 import { verifyOtpSchema } from "@/lib/auth/server";
 
 export async function POST(request: Request) {
-  let body: unknown;
-  try {
-    body = await request.json();
-  } catch {
-    return jsonError("Invalid request body.", 400);
+  const bodyResult = await parseJsonBody(request);
+  if (!bodyResult.success) {
+    return bodyResult.response;
   }
 
-  const validation = validateRequest(body, verifyOtpSchema);
+  const validation = validateRequest(bodyResult.data, verifyOtpSchema);
   if (!validation.success) {
     return validation.response;
   }
