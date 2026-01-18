@@ -37,10 +37,10 @@ export async function PATCH(request: Request, context: RouteContext) {
   const supabase = createServerSupabaseClient();
 
   try {
-    const context = await ensureHouseholdContext(supabase, authResult.userId);
+    const householdContext = await ensureHouseholdContext(supabase, authResult.userId);
     const planDay = await updatePlanDay(
       supabase,
-      context.household.id,
+      householdContext.household.id,
       authResult.userId,
       planDayId,
       validation.data
