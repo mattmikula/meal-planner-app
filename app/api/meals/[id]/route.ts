@@ -1,10 +1,17 @@
 import { NextResponse } from "next/server";
 
-import { applyAuthCookies, jsonError, validateRequest } from "@/lib/api/helpers";
+import {
+  applyAuthCookies,
+  jsonError,
+  logApiError,
+  parseJsonBody,
+  validateRequest
+} from "@/lib/api/helpers";
 import { requireApiUser } from "@/lib/auth/server";
 import { ensureHouseholdContext } from "@/lib/household/server";
 import {
   deleteMeal,
+  mealIdParamSchema,
   updateMeal,
   updateMealSchema
 } from "@/lib/meals/server";
@@ -22,14 +29,17 @@ export async function PATCH(request: Request, context: RouteContext) {
 
   const { id: mealId } = context.params;
 
-  let body: unknown;
-  try {
-    body = await request.json();
-  } catch {
-    return jsonError("Invalid JSON body.", 400);
+  const paramValidation = validateRequest({ id: mealId }, mealIdParamSchema);
+  if (!paramValidation.success) {
+    return paramValidation.response;
   }
 
-  const validation = validateRequest(body, updateMealSchema);
+  const bodyResult = await parseJsonBody(request);
+  if (!bodyResult.success) {
+    return bodyResult.response;
+  }
+
+  const validation = validateRequest(bodyResult.data, updateMealSchema);
   if (!validation.success) {
     return validation.response;
   }
@@ -54,7 +64,7 @@ export async function PATCH(request: Request, context: RouteContext) {
     applyAuthCookies(response, authResult.session, request);
     return response;
   } catch (error) {
-    console.error("[meals] PATCH error:", error instanceof Error ? error.message : error);
+    logApiError("meals PATCH", error, { mealId, userId: authResult.userId });
     return jsonError("Unable to update meal.", 500);
   }
 }
@@ -66,6 +76,10 @@ export async function DELETE(request: Request, context: RouteContext) {
   }
 
   const { id: mealId } = context.params;
+  const paramValidation = validateRequest({ id: mealId }, mealIdParamSchema);
+  if (!paramValidation.success) {
+    return paramValidation.response;
+  }
   const supabase = createServerSupabaseClient();
 
   try {
@@ -85,7 +99,7 @@ export async function DELETE(request: Request, context: RouteContext) {
     applyAuthCookies(response, authResult.session, request);
     return response;
   } catch (error) {
-    console.error("[meals] DELETE error:", error instanceof Error ? error.message : error);
+    logApiError("meals DELETE", error, { mealId, userId: authResult.userId });
     return jsonError("Unable to delete meal.", 500);
   }
 }

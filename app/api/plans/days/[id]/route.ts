@@ -1,10 +1,17 @@
 import { NextResponse } from "next/server";
 
-import { applyAuthCookies, jsonError, validateRequest } from "@/lib/api/helpers";
+import {
+  applyAuthCookies,
+  jsonError,
+  logApiError,
+  parseJsonBody,
+  validateRequest
+} from "@/lib/api/helpers";
 import { requireApiUser } from "@/lib/auth/server";
 import { ensureHouseholdContext } from "@/lib/household/server";
 import {
   PlanMutationError,
+  planDayIdParamSchema,
   updatePlanDay,
   updatePlanDaySchema
 } from "@/lib/plans/server";
@@ -22,14 +29,17 @@ export async function PATCH(request: Request, context: RouteContext) {
 
   const { id: planDayId } = context.params;
 
-  let body: unknown;
-  try {
-    body = await request.json();
-  } catch {
-    return jsonError("Invalid JSON body.", 400);
+  const paramValidation = validateRequest({ id: planDayId }, planDayIdParamSchema);
+  if (!paramValidation.success) {
+    return paramValidation.response;
   }
 
-  const validation = validateRequest(body, updatePlanDaySchema);
+  const bodyResult = await parseJsonBody(request);
+  if (!bodyResult.success) {
+    return bodyResult.response;
+  }
+
+  const validation = validateRequest(bodyResult.data, updatePlanDaySchema);
   if (!validation.success) {
     return validation.response;
   }
@@ -57,10 +67,7 @@ export async function PATCH(request: Request, context: RouteContext) {
     if (error instanceof PlanMutationError) {
       return jsonError(error.message, error.status);
     }
-    console.error(
-      "[plans] PATCH /days error:",
-      error instanceof Error ? error.message : error
-    );
+    logApiError("plans PATCH /days", error, { planDayId, userId: authResult.userId });
     return jsonError("Unable to update plan day.", 500);
   }
 }

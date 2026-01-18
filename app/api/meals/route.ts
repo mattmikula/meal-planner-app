@@ -1,6 +1,12 @@
 import { NextResponse } from "next/server";
 
-import { applyAuthCookies, jsonError, validateRequest } from "@/lib/api/helpers";
+import {
+  applyAuthCookies,
+  jsonError,
+  logApiError,
+  parseJsonBody,
+  validateRequest
+} from "@/lib/api/helpers";
 import { requireApiUser } from "@/lib/auth/server";
 import { ensureHouseholdContext } from "@/lib/household/server";
 import {
@@ -25,7 +31,7 @@ export async function GET(request: Request) {
     applyAuthCookies(response, authResult.session, request);
     return response;
   } catch (error) {
-    console.error("[meals] GET error:", error instanceof Error ? error.message : error);
+    logApiError("meals GET", error, { userId: authResult.userId });
     return jsonError("Unable to load meals.", 500);
   }
 }
@@ -36,14 +42,12 @@ export async function POST(request: Request) {
     return authResult.response;
   }
 
-  let body: unknown;
-  try {
-    body = await request.json();
-  } catch {
-    return jsonError("Invalid JSON body.", 400);
+  const bodyResult = await parseJsonBody(request);
+  if (!bodyResult.success) {
+    return bodyResult.response;
   }
 
-  const validation = validateRequest(body, createMealSchema);
+  const validation = validateRequest(bodyResult.data, createMealSchema);
   if (!validation.success) {
     return validation.response;
   }
@@ -62,7 +66,7 @@ export async function POST(request: Request) {
     applyAuthCookies(response, authResult.session, request);
     return response;
   } catch (error) {
-    console.error("[meals] POST error:", error instanceof Error ? error.message : error);
+    logApiError("meals POST", error, { userId: authResult.userId });
     return jsonError("Unable to create meal.", 500);
   }
 }

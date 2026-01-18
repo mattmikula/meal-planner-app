@@ -30,7 +30,15 @@ const mealsMocks = vi.hoisted(() => ({
 vi.mock("@/lib/auth/server", () => authMocks);
 vi.mock("@/lib/household/server", () => householdMocks);
 vi.mock("@/lib/supabase/server", () => supabaseMocks);
-vi.mock("@/lib/meals/server", () => mealsMocks);
+vi.mock("@/lib/meals/server", async () => {
+  const actual = await vi.importActual<typeof import("@/lib/meals/server")>(
+    "@/lib/meals/server"
+  );
+  return {
+    ...actual,
+    ...mealsMocks
+  };
+});
 
 import { GET as getMeals, POST as createMealRoute } from "@/app/api/meals/route";
 import { PATCH as updateMealRoute, DELETE as deleteMealRoute } from "@/app/api/meals/[id]/route";
@@ -57,8 +65,11 @@ const authSession = {
   expires_in: 3600
 };
 
+const mealId = "11111111-1111-4111-8111-111111111111";
+const missingMealId = "22222222-2222-4222-8222-222222222222";
+
 const sampleMeal = {
-  id: "meal-1",
+  id: mealId,
   name: "Spaghetti",
   notes: "Family favorite",
   createdAt: "2024-02-12T10:00:00Z",
@@ -200,6 +211,24 @@ describe("POST /api/meals", () => {
 });
 
 describe("PATCH /api/meals/[id]", () => {
+  it("returns 400 when meal id is invalid", async () => {
+    authMocks.requireApiUser.mockResolvedValue({
+      userId: "user-1",
+      email: "test@example.com"
+    });
+
+    const response = await updateMealRoute(
+      new Request("https://localhost/api/meals/not-a-uuid", {
+        method: "PATCH",
+        body: JSON.stringify({ name: "Updated" })
+      }),
+      { params: { id: "not-a-uuid" } }
+    );
+
+    expect(response.status).toBe(400);
+    expect(await response.json()).toEqual({ error: "Meal ID must be a valid UUID." });
+  });
+
   it("returns 400 when body is invalid JSON", async () => {
     authMocks.requireApiUser.mockResolvedValue({
       userId: "user-1",
@@ -208,11 +237,11 @@ describe("PATCH /api/meals/[id]", () => {
     householdMocks.ensureHouseholdContext.mockResolvedValue(householdContext);
 
     const response = await updateMealRoute(
-      new Request("https://localhost/api/meals/meal-1", {
+      new Request(`https://localhost/api/meals/${mealId}`, {
         method: "PATCH",
         body: "invalid json"
       }),
-      { params: { id: "meal-1" } }
+      { params: { id: mealId } }
     );
 
     expect(response.status).toBe(400);
@@ -229,11 +258,11 @@ describe("PATCH /api/meals/[id]", () => {
     });
 
     const response = await updateMealRoute(
-      new Request("https://localhost/api/meals/meal-1", {
+      new Request(`https://localhost/api/meals/${mealId}`, {
         method: "PATCH",
         body: JSON.stringify({})
       }),
-      { params: { id: "meal-1" } }
+      { params: { id: mealId } }
     );
 
     expect(response.status).toBe(400);
@@ -251,11 +280,11 @@ describe("PATCH /api/meals/[id]", () => {
     mealsMocks.updateMeal.mockResolvedValue(null);
 
     const response = await updateMealRoute(
-      new Request("https://localhost/api/meals/meal-999", {
+      new Request(`https://localhost/api/meals/${missingMealId}`, {
         method: "PATCH",
         body: JSON.stringify({ name: "Updated" })
       }),
-      { params: { id: "meal-999" } }
+      { params: { id: missingMealId } }
     );
 
     expect(response.status).toBe(404);
@@ -274,11 +303,11 @@ describe("PATCH /api/meals/[id]", () => {
     mealsMocks.updateMeal.mockResolvedValue(updatedMeal);
 
     const response = await updateMealRoute(
-      new Request("https://localhost/api/meals/meal-1", {
+      new Request(`https://localhost/api/meals/${mealId}`, {
         method: "PATCH",
         body: JSON.stringify({ name: "Updated Spaghetti" })
       }),
-      { params: { id: "meal-1" } }
+      { params: { id: mealId } }
     );
 
     expect(response.status).toBe(200);
@@ -287,13 +316,30 @@ describe("PATCH /api/meals/[id]", () => {
       supabase,
       "household-1",
       "user-1",
-      "meal-1",
+      mealId,
       { name: "Updated Spaghetti" }
     );
   });
 });
 
 describe("DELETE /api/meals/[id]", () => {
+  it("returns 400 when meal id is invalid", async () => {
+    authMocks.requireApiUser.mockResolvedValue({
+      userId: "user-1",
+      email: "test@example.com"
+    });
+
+    const response = await deleteMealRoute(
+      new Request("https://localhost/api/meals/not-a-uuid", {
+        method: "DELETE"
+      }),
+      { params: { id: "not-a-uuid" } }
+    );
+
+    expect(response.status).toBe(400);
+    expect(await response.json()).toEqual({ error: "Meal ID must be a valid UUID." });
+  });
+
   it("returns 404 when meal not found", async () => {
     authMocks.requireApiUser.mockResolvedValue({
       userId: "user-1",
@@ -305,10 +351,10 @@ describe("DELETE /api/meals/[id]", () => {
     mealsMocks.deleteMeal.mockResolvedValue(false);
 
     const response = await deleteMealRoute(
-      new Request("https://localhost/api/meals/meal-999", {
+      new Request(`https://localhost/api/meals/${missingMealId}`, {
         method: "DELETE"
       }),
-      { params: { id: "meal-999" } }
+      { params: { id: missingMealId } }
     );
 
     expect(response.status).toBe(404);
@@ -325,10 +371,10 @@ describe("DELETE /api/meals/[id]", () => {
     mealsMocks.deleteMeal.mockResolvedValue(true);
 
     const response = await deleteMealRoute(
-      new Request("https://localhost/api/meals/meal-1", {
+      new Request(`https://localhost/api/meals/${mealId}`, {
         method: "DELETE"
       }),
-      { params: { id: "meal-1" } }
+      { params: { id: mealId } }
     );
 
     expect(response.status).toBe(200);
@@ -337,7 +383,7 @@ describe("DELETE /api/meals/[id]", () => {
       supabase,
       "household-1",
       "user-1",
-      "meal-1"
+      mealId
     );
   });
 });
