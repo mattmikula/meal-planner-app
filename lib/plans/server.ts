@@ -12,6 +12,7 @@ export type PlanFetchQuery = {
   weekStart: components["schemas"]["PlanWeekStart"];
 };
 export type PlanGenerateRequest = components["schemas"]["PlanGenerateRequest"];
+export type UpdatePlanDayRequest = components["schemas"]["UpdatePlanDayRequest"];
 
 type PlanRow = {
   id: string;
@@ -120,12 +121,31 @@ export const planGenerateRequestSchema = z.object({
   weekStart: planWeekStartSchema
 }) satisfies z.ZodType<PlanGenerateRequest>;
 
+export const updatePlanDaySchema = z.object({
+  mealId: z.string().uuid("Meal ID must be a valid UUID.").nullable().optional(),
+  locked: z.boolean().optional()
+}).refine((data) => data.mealId !== undefined || data.locked !== undefined, {
+  message: "At least one field (mealId or locked) must be provided."
+}) satisfies z.ZodType<UpdatePlanDayRequest>;
+
+export type UpdatePlanDayInput = z.infer<typeof updatePlanDaySchema>;
+
 export class PlanGenerationError extends Error {
   status: number;
 
   constructor(message: string, status = 400) {
     super(message);
     this.name = "PlanGenerationError";
+    this.status = status;
+  }
+}
+
+export class PlanMutationError extends Error {
+  status: number;
+
+  constructor(message: string, status = 400) {
+    super(message);
+    this.name = "PlanMutationError";
     this.status = status;
   }
 }
@@ -219,6 +239,173 @@ const mapPlanDayRow = (row: PlanDayRow): PlanDay => ({
   updatedAt: row.updated_at,
   updatedBy: row.updated_by
 });
+
+type PlanDayMutation = {
+  nextMealId: string | null;
+  nextLocked: boolean;
+  mealChanged: boolean;
+  lockedChanged: boolean;
+};
+
+const derivePlanDayMutation = (
+  planDayRow: PlanDayRow,
+  input: UpdatePlanDayInput
+): PlanDayMutation => {
+  const nextMealId = input.mealId !== undefined ? input.mealId : planDayRow.meal_id;
+  const nextLocked = input.locked !== undefined ? input.locked : planDayRow.locked;
+  const mealChanged = input.mealId !== undefined && input.mealId !== planDayRow.meal_id;
+  const lockedChanged = input.locked !== undefined && input.locked !== planDayRow.locked;
+
+  return {
+    nextMealId,
+    nextLocked,
+    mealChanged,
+    lockedChanged
+  };
+};
+
+const fetchPlanDayRow = async (
+  supabase: SupabaseClient,
+  householdId: string,
+  planDayId: string
+): Promise<PlanDayRow | null> => {
+  const { data, error } = await supabase
+    .from("plan_days")
+    .select("id, plan_id, date, meal_id, locked, created_at, created_by, updated_at, updated_by")
+    .eq("id", planDayId)
+    .eq("household_id", householdId)
+    .maybeSingle();
+
+  if (error) {
+    throw new Error(error.message);
+  }
+
+  return data as PlanDayRow | null;
+};
+
+const assertMealInHousehold = async (
+  supabase: SupabaseClient,
+  householdId: string,
+  mealId: string
+) => {
+  const { data, error } = await supabase
+    .from("meals")
+    .select("id")
+    .eq("id", mealId)
+    .eq("household_id", householdId)
+    .maybeSingle();
+
+  if (error) {
+    throw new Error(error.message);
+  }
+
+  if (!data) {
+    throw new PlanMutationError("Meal not found.", 404);
+  }
+};
+
+const applyPlanDayUpdate = async (
+  supabase: SupabaseClient,
+  householdId: string,
+  userId: string,
+  planDayId: string,
+  mutation: PlanDayMutation,
+  now: string
+): Promise<PlanDayRow | null> => {
+  const updates: Record<string, unknown> = {
+    updated_by: userId,
+    updated_at: now
+  };
+
+  if (mutation.mealChanged) {
+    updates.meal_id = mutation.nextMealId;
+  }
+
+  if (mutation.lockedChanged) {
+    updates.locked = mutation.nextLocked;
+  }
+
+  const { data: updatedData, error: updateError } = await supabase
+    .from("plan_days")
+    .update(updates)
+    .eq("id", planDayId)
+    .eq("household_id", householdId)
+    .select("id, plan_id, date, meal_id, locked, created_at, created_by, updated_at, updated_by")
+    .maybeSingle();
+
+  if (updateError) {
+    throw new Error(updateError.message);
+  }
+
+  return updatedData as PlanDayRow | null;
+};
+
+const touchPlanRow = async (
+  supabase: SupabaseClient,
+  householdId: string,
+  userId: string,
+  planId: string,
+  now: string
+) => {
+  const { error } = await supabase
+    .from("plans")
+    .update({
+      updated_at: now,
+      updated_by: userId
+    })
+    .eq("id", planId)
+    .eq("household_id", householdId);
+
+  if (error) {
+    throw new Error(error.message);
+  }
+};
+
+const buildPlanDayAuditEvents = (
+  updatedPlanDay: PlanDay,
+  mutation: PlanDayMutation,
+  householdId: string,
+  userId: string,
+  now: string
+) => {
+  const auditEvents = [];
+
+  if (mutation.lockedChanged) {
+    auditEvents.push({
+      household_id: householdId,
+      entity_type: "plan_day",
+      entity_id: updatedPlanDay.id,
+      action: mutation.nextLocked ? "plan_day.locked" : "plan_day.unlocked",
+      actor_user_id: userId,
+      summary: {
+        planDayId: updatedPlanDay.id,
+        planId: updatedPlanDay.planId,
+        date: updatedPlanDay.date,
+        mealId: updatedPlanDay.mealId
+      },
+      created_at: now
+    });
+  }
+
+  if (mutation.mealChanged) {
+    auditEvents.push({
+      household_id: householdId,
+      entity_type: "plan_day",
+      entity_id: updatedPlanDay.id,
+      action: "plan_day.swapped",
+      actor_user_id: userId,
+      summary: {
+        planDayId: updatedPlanDay.id,
+        planId: updatedPlanDay.planId,
+        date: updatedPlanDay.date,
+        mealId: updatedPlanDay.mealId
+      },
+      created_at: now
+    });
+  }
+
+  return auditEvents;
+};
 
 const fetchPlanRow = async (
   supabase: SupabaseClient,
@@ -378,6 +565,58 @@ const applyPlanGeneration = async (
     throw new Error(error.message);
   }
 };
+
+export async function updatePlanDay(
+  supabase: SupabaseClient,
+  householdId: string,
+  userId: string,
+  planDayId: string,
+  input: UpdatePlanDayInput
+): Promise<PlanDay | null> {
+  const planDayRow = await fetchPlanDayRow(supabase, householdId, planDayId);
+  if (!planDayRow) {
+    return null;
+  }
+
+  if (input.mealId !== undefined && input.mealId !== null) {
+    await assertMealInHousehold(supabase, householdId, input.mealId);
+  }
+
+  const mutation = derivePlanDayMutation(planDayRow, input);
+  if (!mutation.mealChanged && !mutation.lockedChanged) {
+    return mapPlanDayRow(planDayRow);
+  }
+
+  const now = new Date().toISOString();
+  const updatedData = await applyPlanDayUpdate(
+    supabase,
+    householdId,
+    userId,
+    planDayId,
+    mutation,
+    now
+  );
+
+  if (!updatedData) {
+    return null;
+  }
+
+  await touchPlanRow(supabase, householdId, userId, planDayRow.plan_id, now);
+  const updatedPlanDay = mapPlanDayRow(updatedData as PlanDayRow);
+  const auditEvents = buildPlanDayAuditEvents(
+    updatedPlanDay,
+    mutation,
+    householdId,
+    userId,
+    now
+  );
+
+  if (auditEvents.length > 0) {
+    void supabase.from("audit_log").insert(auditEvents);
+  }
+
+  return updatedPlanDay;
+}
 
 export async function fetchPlanForWeek(
   supabase: SupabaseClient,
