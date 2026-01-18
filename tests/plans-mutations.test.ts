@@ -8,6 +8,46 @@ import {
 
 type SupabaseClient = Parameters<typeof updatePlanDay>[0];
 
+type PlanDayRow = {
+  id: string;
+  plan_id: string;
+  date: string;
+  meal_id: string | null;
+  locked: boolean;
+  created_at: string;
+  created_by: string;
+  updated_at: string | null;
+  updated_by: string | null;
+};
+
+type PlanDaySelectQuery = {
+  select: () => PlanDaySelectQuery;
+  eq: () => PlanDaySelectQuery;
+  maybeSingle: () => Promise<{ data: PlanDayRow | null; error: null }>;
+};
+
+type PlanDayUpdateQuery = {
+  update: () => PlanDayUpdateQuery;
+  eq: () => PlanDayUpdateQuery;
+  select: () => PlanDayUpdateQuery;
+  maybeSingle: () => Promise<{ data: PlanDayRow | null; error: null }>;
+};
+
+type PlansUpdateQuery = {
+  update: () => PlansUpdateQuery;
+  eq: () => PlansUpdateQuery;
+  then: (
+    resolve: (value: { data: null; error: null }) => unknown,
+    reject: (reason?: unknown) => unknown
+  ) => Promise<unknown>;
+};
+
+type MealsSelectQuery = {
+  select: () => MealsSelectQuery;
+  eq: () => MealsSelectQuery;
+  maybeSingle: () => Promise<{ data: { id: string } | null; error: null }>;
+};
+
 describe("updatePlanDaySchema", () => {
   it("requires at least one field", () => {
     const result = updatePlanDaySchema.safeParse({});
@@ -21,7 +61,8 @@ describe("updatePlanDaySchema", () => {
 
 describe("updatePlanDay", () => {
   it("returns null when plan day is missing", async () => {
-    const planDaysSelectQuery = {
+    let planDaysSelectQuery: PlanDaySelectQuery;
+    planDaysSelectQuery = {
       select: vi.fn(() => planDaysSelectQuery),
       eq: vi.fn(() => planDaysSelectQuery),
       maybeSingle: vi.fn(async () => ({ data: null, error: null }))
@@ -48,7 +89,7 @@ describe("updatePlanDay", () => {
   });
 
   it("throws when meal is not found in household", async () => {
-    const planDayRow = {
+    const planDayRow: PlanDayRow = {
       id: "plan-day-1",
       plan_id: "plan-1",
       date: "2024-02-12",
@@ -60,13 +101,15 @@ describe("updatePlanDay", () => {
       updated_by: null
     };
 
-    const planDaysSelectQuery = {
+    let planDaysSelectQuery: PlanDaySelectQuery;
+    planDaysSelectQuery = {
       select: vi.fn(() => planDaysSelectQuery),
       eq: vi.fn(() => planDaysSelectQuery),
       maybeSingle: vi.fn(async () => ({ data: planDayRow, error: null }))
     };
 
-    const mealsSelectQuery = {
+    let mealsSelectQuery: MealsSelectQuery;
+    mealsSelectQuery = {
       select: vi.fn(() => mealsSelectQuery),
       eq: vi.fn(() => mealsSelectQuery),
       maybeSingle: vi.fn(async () => ({ data: null, error: null }))
@@ -96,7 +139,7 @@ describe("updatePlanDay", () => {
   });
 
   it("updates the plan day when fields change", async () => {
-    const planDayRow = {
+    const planDayRow: PlanDayRow = {
       id: "plan-day-1",
       plan_id: "plan-1",
       date: "2024-02-12",
@@ -108,27 +151,30 @@ describe("updatePlanDay", () => {
       updated_by: null
     };
 
-    const updatedPlanDayRow = {
+    const updatedPlanDayRow: PlanDayRow = {
       ...planDayRow,
       locked: true,
       updated_at: "2024-02-18T01:20:00Z",
       updated_by: "user-1"
     };
 
-    const planDaysSelectQuery = {
+    let planDaysSelectQuery: PlanDaySelectQuery;
+    planDaysSelectQuery = {
       select: vi.fn(() => planDaysSelectQuery),
       eq: vi.fn(() => planDaysSelectQuery),
       maybeSingle: vi.fn(async () => ({ data: planDayRow, error: null }))
     };
 
-    const planDaysUpdateQuery = {
+    let planDaysUpdateQuery: PlanDayUpdateQuery;
+    planDaysUpdateQuery = {
       update: vi.fn(() => planDaysUpdateQuery),
       eq: vi.fn(() => planDaysUpdateQuery),
       select: vi.fn(() => planDaysUpdateQuery),
       maybeSingle: vi.fn(async () => ({ data: updatedPlanDayRow, error: null }))
     };
 
-    const plansUpdateQuery = {
+    let plansUpdateQuery: PlansUpdateQuery;
+    plansUpdateQuery = {
       update: vi.fn(() => plansUpdateQuery),
       eq: vi.fn(() => plansUpdateQuery),
       then: (resolve: (value: { data: null; error: null }) => unknown, reject: (reason?: unknown) => unknown) =>
@@ -167,7 +213,7 @@ describe("updatePlanDay", () => {
   });
 
   it("returns the existing plan day when no changes are applied", async () => {
-    const planDayRow = {
+    const planDayRow: PlanDayRow = {
       id: "plan-day-1",
       plan_id: "plan-1",
       date: "2024-02-12",
@@ -179,7 +225,8 @@ describe("updatePlanDay", () => {
       updated_by: null
     };
 
-    const planDaysSelectQuery = {
+    let planDaysSelectQuery: PlanDaySelectQuery;
+    planDaysSelectQuery = {
       select: vi.fn(() => planDaysSelectQuery),
       eq: vi.fn(() => planDaysSelectQuery),
       maybeSingle: vi.fn(async () => ({ data: planDayRow, error: null }))
@@ -207,7 +254,7 @@ describe("updatePlanDay", () => {
   });
 
   it("clears the meal assignment when mealId is null", async () => {
-    const planDayRow = {
+    const planDayRow: PlanDayRow = {
       id: "plan-day-1",
       plan_id: "plan-1",
       date: "2024-02-12",
@@ -219,27 +266,30 @@ describe("updatePlanDay", () => {
       updated_by: null
     };
 
-    const updatedPlanDayRow = {
+    const updatedPlanDayRow: PlanDayRow = {
       ...planDayRow,
       meal_id: null,
       updated_at: "2024-02-18T01:20:00Z",
       updated_by: "user-1"
     };
 
-    const planDaysSelectQuery = {
+    let planDaysSelectQuery: PlanDaySelectQuery;
+    planDaysSelectQuery = {
       select: vi.fn(() => planDaysSelectQuery),
       eq: vi.fn(() => planDaysSelectQuery),
       maybeSingle: vi.fn(async () => ({ data: planDayRow, error: null }))
     };
 
-    const planDaysUpdateQuery = {
+    let planDaysUpdateQuery: PlanDayUpdateQuery;
+    planDaysUpdateQuery = {
       update: vi.fn(() => planDaysUpdateQuery),
       eq: vi.fn(() => planDaysUpdateQuery),
       select: vi.fn(() => planDaysUpdateQuery),
       maybeSingle: vi.fn(async () => ({ data: updatedPlanDayRow, error: null }))
     };
 
-    const plansUpdateQuery = {
+    let plansUpdateQuery: PlansUpdateQuery;
+    plansUpdateQuery = {
       update: vi.fn(() => plansUpdateQuery),
       eq: vi.fn(() => plansUpdateQuery),
       then: (resolve: (value: { data: null; error: null }) => unknown, reject: (reason?: unknown) => unknown) =>
@@ -277,7 +327,7 @@ describe("updatePlanDay", () => {
   });
 
   it("writes two audit events when meal and lock change", async () => {
-    const planDayRow = {
+    const planDayRow: PlanDayRow = {
       id: "plan-day-1",
       plan_id: "plan-1",
       date: "2024-02-12",
@@ -289,7 +339,7 @@ describe("updatePlanDay", () => {
       updated_by: null
     };
 
-    const updatedPlanDayRow = {
+    const updatedPlanDayRow: PlanDayRow = {
       ...planDayRow,
       meal_id: null,
       locked: true,
@@ -297,27 +347,30 @@ describe("updatePlanDay", () => {
       updated_by: "user-1"
     };
 
-    const planDaysSelectQuery = {
+    let planDaysSelectQuery: PlanDaySelectQuery;
+    planDaysSelectQuery = {
       select: vi.fn(() => planDaysSelectQuery),
       eq: vi.fn(() => planDaysSelectQuery),
       maybeSingle: vi.fn(async () => ({ data: planDayRow, error: null }))
     };
 
-    const planDaysUpdateQuery = {
+    let planDaysUpdateQuery: PlanDayUpdateQuery;
+    planDaysUpdateQuery = {
       update: vi.fn(() => planDaysUpdateQuery),
       eq: vi.fn(() => planDaysUpdateQuery),
       select: vi.fn(() => planDaysUpdateQuery),
       maybeSingle: vi.fn(async () => ({ data: updatedPlanDayRow, error: null }))
     };
 
-    const plansUpdateQuery = {
+    let plansUpdateQuery: PlansUpdateQuery;
+    plansUpdateQuery = {
       update: vi.fn(() => plansUpdateQuery),
       eq: vi.fn(() => plansUpdateQuery),
       then: (resolve: (value: { data: null; error: null }) => unknown, reject: (reason?: unknown) => unknown) =>
         Promise.resolve({ data: null, error: null }).then(resolve, reject)
     };
 
-    const auditInsert = vi.fn(async () => ({ data: null, error: null }));
+    const auditInsert = vi.fn(async (_payload: unknown[]) => ({ data: null, error: null }));
 
     let planDaysCallCount = 0;
     const supabase = {
@@ -344,6 +397,7 @@ describe("updatePlanDay", () => {
       { mealId: null, locked: true }
     );
 
-    expect(auditInsert.mock.calls[0]?.[0]).toHaveLength(2);
+    const [auditPayload] = auditInsert.mock.calls[0] ?? [];
+    expect(auditPayload).toHaveLength(2);
   });
 });
