@@ -859,6 +859,88 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/api/plans/days/{id}": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        /**
+         * Update plan day
+         * @description Updates a plan day's meal assignment or lock status.
+         */
+        patch: {
+            parameters: {
+                query?: never;
+                header?: never;
+                path: {
+                    /** @description Plan day ID */
+                    id: string;
+                };
+                cookie?: never;
+            };
+            requestBody: {
+                content: {
+                    "application/json": components["schemas"]["UpdatePlanDayRequest"];
+                };
+            };
+            responses: {
+                /** @description Plan day updated. */
+                200: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["PlanDay"];
+                    };
+                };
+                /** @description Invalid request body. */
+                400: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["Error"];
+                    };
+                };
+                /** @description Missing or invalid credentials. */
+                401: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["Error"];
+                    };
+                };
+                /** @description Plan day not found. */
+                404: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["Error"];
+                    };
+                };
+                /** @description Plan day update failed. */
+                500: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["Error"];
+                    };
+                };
+            };
+        };
+        trace?: never;
+    };
     "/api/plans/generate": {
         parameters: {
             query?: never;
@@ -1044,6 +1126,12 @@ export interface components {
         PlanWeekStart: string;
         PlanGenerateRequest: {
             weekStart: components["schemas"]["PlanWeekStart"];
+        };
+        /** @description At least one field (mealId or locked) must be provided. */
+        UpdatePlanDayRequest: {
+            /** Format: uuid */
+            mealId?: string | null;
+            locked?: boolean;
         };
         PlanDay: {
             /** Format: uuid */

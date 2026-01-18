@@ -614,6 +614,60 @@ paths:
               schema:
                 $ref: "#/components/schemas/Error"
 
+  /api/plans/days/{id}:
+    patch:
+      summary: Update plan day
+      description: Updates a plan day's meal assignment or lock status.
+      tags:
+        - Plans
+      security:
+        - bearerAuth: []
+      parameters:
+        - name: id
+          in: path
+          description: Plan day ID
+          required: true
+          schema:
+            type: string
+            format: uuid
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/UpdatePlanDayRequest"
+      responses:
+        "200":
+          description: Plan day updated.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/PlanDay"
+        "400":
+          description: Invalid request body.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Error"
+        "401":
+          description: Missing or invalid credentials.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Error"
+        "404":
+          description: Plan day not found.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Error"
+        "500":
+          description: Plan day update failed.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Error"
+
   /api/plans/generate:
     post:
       summary: Generate weekly plan
@@ -920,6 +974,17 @@ components:
       properties:
         weekStart:
           $ref: "#/components/schemas/PlanWeekStart"
+
+    UpdatePlanDayRequest:
+      type: object
+      description: At least one field (mealId or locked) must be provided.
+      properties:
+        mealId:
+          type: string
+          format: uuid
+          nullable: true
+        locked:
+          type: boolean
 
     PlanDay:
       type: object
