@@ -45,6 +45,15 @@ test("marks the active route in the nav", () => {
   expect(mealsLink).toHaveAttribute("aria-current", "page");
 });
 
+test("marks the planner link active for the planner path", () => {
+  mockUsePathname.mockReturnValue("/planner");
+  render(<AppNav />);
+
+  const plannerLink = screen.getByRole("link", { name: "Planner" });
+  expect(plannerLink).toHaveClass(styles.linkActive);
+  expect(plannerLink).toHaveAttribute("aria-current", "page");
+});
+
 test("marks the home link active for the root path", () => {
   mockUsePathname.mockReturnValue("/");
   render(<AppNav />);
