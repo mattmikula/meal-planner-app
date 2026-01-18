@@ -34,8 +34,11 @@ enum PlannerStatusMessage {
   PlanGenerated = "Plan generated.",
   PlanRegenerated = "Plan regenerated.",
   PlanGenerateFailed = "Unable to generate plan.",
-  PlanDayUpdated = "Plan day updated.",
-  PlanDayUpdateFailed = "Unable to update plan day."
+  PlanDayUpdateFailed = "Unable to update plan day.",
+  DayLocked = "Day locked.",
+  DayUnlocked = "Day unlocked.",
+  MealSwapped = "Meal swapped.",
+  MealCleared = "Meal cleared."
 }
 
 const ELLIPSIS = "\u2026";
@@ -52,6 +55,7 @@ type PlannerDayCardProps = {
   disableSwap: boolean;
   meals: Array<{ id: string; name: string }>;
   mealMissing: boolean;
+  mealPoolEmpty: boolean;
   onToggleLock: (id: string, nextLocked: boolean) => void;
   onSwapMeal: (id: string, mealId: string | null) => void;
 };
@@ -68,6 +72,7 @@ const PlannerDayCard = memo(function PlannerDayCard({
   disableSwap,
   meals,
   mealMissing,
+  mealPoolEmpty,
   onToggleLock,
   onSwapMeal
 }: PlannerDayCardProps) {
@@ -81,7 +86,8 @@ const PlannerDayCard = memo(function PlannerDayCard({
     (event: ChangeEvent<HTMLSelectElement>) => {
       const value = event.target.value;
       const nextMealId = value ? value : null;
-      if (nextMealId === mealId) {
+      const currentMealId = mealId ?? null;
+      if (nextMealId === currentMealId) {
         return;
       }
       onSwapMeal(id, nextMealId);
@@ -134,6 +140,9 @@ const PlannerDayCard = memo(function PlannerDayCard({
             </option>
           ))}
         </Select>
+        {mealPoolEmpty ? (
+          <p className={styles.helperText}>Add meals to enable swapping.</p>
+        ) : null}
       </div>
 
       <div className={styles.dayActions}>
@@ -155,7 +164,7 @@ export default function PlannerClient() {
   const api = useMemo(() => createApiClient(), []);
   const router = useRouter();
   const isMountedRef = useRef(true);
-  const weekStart = useMemo(() => getWeekStartForDate(new Date()), []);
+  const [weekStart, setWeekStart] = useState(() => getWeekStartForDate(new Date()));
 
   const [checkingSession, setCheckingSession] = useState(true);
   const [plan, setPlan] = useState<Plan | null>(null);
@@ -171,16 +180,47 @@ export default function PlannerClient() {
     };
   }, []);
 
+  useEffect(() => {
+    const updateWeekStart = () => {
+      const nextWeekStart = getWeekStartForDate(new Date());
+      setWeekStart((current) => (current === nextWeekStart ? current : nextWeekStart));
+    };
+
+    const handleVisibility = () => {
+      if (document.visibilityState === "visible") {
+        updateWeekStart();
+      }
+    };
+
+    window.addEventListener("focus", updateWeekStart);
+    document.addEventListener("visibilitychange", handleVisibility);
+
+    return () => {
+      window.removeEventListener("focus", updateWeekStart);
+      document.removeEventListener("visibilitychange", handleVisibility);
+    };
+  }, []);
+
   const weekLabelFormatter = useMemo(
-    () => new Intl.DateTimeFormat(undefined, { month: "short", day: "numeric" }),
+    () =>
+      new Intl.DateTimeFormat(undefined, {
+        month: "short",
+        day: "numeric",
+        timeZone: "UTC"
+      }),
     []
   );
   const dayNameFormatter = useMemo(
-    () => new Intl.DateTimeFormat(undefined, { weekday: "long" }),
+    () => new Intl.DateTimeFormat(undefined, { weekday: "long", timeZone: "UTC" }),
     []
   );
   const dayDateFormatter = useMemo(
-    () => new Intl.DateTimeFormat(undefined, { month: "short", day: "numeric" }),
+    () =>
+      new Intl.DateTimeFormat(undefined, {
+        month: "short",
+        day: "numeric",
+        timeZone: "UTC"
+      }),
     []
   );
 
@@ -213,6 +253,7 @@ export default function PlannerClient() {
   }, [meals]);
 
   const hasMealPool = meals.length > 0;
+  const mealPoolEmpty = !hasMealPool;
   const hasAssignments = useMemo(
     () => (plan ? plan.days.some((day) => Boolean(day.mealId)) : false),
     [plan]
@@ -373,7 +414,7 @@ export default function PlannerClient() {
         }
 
         applyPlanDayUpdate(responsePayload.data);
-        setStatus(PlannerStatusMessage.PlanDayUpdated);
+        setStatus(nextLocked ? PlannerStatusMessage.DayLocked : PlannerStatusMessage.DayUnlocked);
       } catch {
         setStatus(PlannerStatusMessage.PlanDayUpdateFailed);
       } finally {
@@ -412,7 +453,7 @@ export default function PlannerClient() {
         }
 
         applyPlanDayUpdate(responsePayload.data);
-        setStatus(PlannerStatusMessage.PlanDayUpdated);
+        setStatus(mealId ? PlannerStatusMessage.MealSwapped : PlannerStatusMessage.MealCleared);
       } catch {
         setStatus(PlannerStatusMessage.PlanDayUpdateFailed);
       } finally {
@@ -516,6 +557,7 @@ export default function PlannerClient() {
                     disableSwap={disableActions || !hasMealPool}
                     meals={mealOptions}
                     mealMissing={mealMissing}
+                    mealPoolEmpty={mealPoolEmpty}
                     onToggleLock={handleToggleLock}
                     onSwapMeal={handleSwapMeal}
                   />

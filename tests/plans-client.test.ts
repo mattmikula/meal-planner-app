@@ -15,3 +15,13 @@ test("getWeekStartForDate normalizes to Monday", () => {
   const date = new Date(Date.UTC(2026, 0, 14));
   expect(getWeekStartForDate(date)).toBe("2026-01-12");
 });
+
+test("getWeekStartForDate keeps Monday as week start", () => {
+  const date = new Date(Date.UTC(2026, 0, 12));
+  expect(getWeekStartForDate(date)).toBe("2026-01-12");
+});
+
+test("getWeekStartForDate normalizes Sunday to prior Monday", () => {
+  const date = new Date(Date.UTC(2026, 0, 18));
+  expect(getWeekStartForDate(date)).toBe("2026-01-12");
+});
