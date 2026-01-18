@@ -5,6 +5,7 @@ import { afterEach, expect, test } from "vitest";
 
 import Button from "@/app/ui/Button";
 import Card from "@/app/ui/Card";
+import Select from "@/app/ui/Select";
 import TextArea from "@/app/ui/TextArea";
 import TextInput from "@/app/ui/TextInput";
 import buttonStyles from "@/app/ui/Button.module.css";
@@ -65,6 +66,29 @@ test("TextArea forwards props", () => {
 
   const textarea = screen.getByLabelText("Notes");
   expect(textarea).toHaveAttribute("rows", "5");
+});
+
+test("Select merges custom className", () => {
+  render(
+    <Select aria-label="Meals" className="extra">
+      <option value="one">One</option>
+    </Select>
+  );
+
+  const select = screen.getByLabelText("Meals");
+  expect(select).toHaveClass(formStyles.select);
+  expect(select).toHaveClass("extra");
+});
+
+test("Select forwards props", () => {
+  render(
+    <Select aria-label="Meals" name="meal">
+      <option value="one">One</option>
+    </Select>
+  );
+
+  const select = screen.getByLabelText("Meals");
+  expect(select).toHaveAttribute("name", "meal");
 });
 
 test("Card applies the compact variant class", () => {
