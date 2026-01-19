@@ -3,23 +3,21 @@
 import Link from "next/link";
 import { useRouter } from "next/navigation";
 import {
-  memo,
   useCallback,
   useEffect,
   useMemo,
   useRef,
-  useState,
-  type ChangeEvent
+  useState
 } from "react";
 
 import AppNav from "@/app/ui/AppNav";
 import Button from "@/app/ui/Button";
 import Card from "@/app/ui/Card";
 import PageLayout from "@/app/ui/PageLayout";
-import Select from "@/app/ui/Select";
-import formStyles from "@/app/ui/FormControls.module.css";
 import layoutStyles from "@/app/ui/Layout.module.css";
 import styles from "@/app/planner/Planner.module.css";
+import PlannerDayCard from "@/app/planner/PlannerDayCard";
+import { buildPlannerDayViews } from "@/app/planner/plannerDayView";
 import { createApiClient } from "@/lib/api/client";
 import { getApiErrorMessage } from "@/lib/api/errors";
 import type { components } from "@/lib/api/types";
@@ -38,127 +36,13 @@ enum PlannerStatusMessage {
   DayLocked = "Day locked.",
   DayUnlocked = "Day unlocked.",
   MealSwapped = "Meal swapped.",
-  MealCleared = "Meal cleared."
+  MealCleared = "Meal cleared.",
+  LeftoversSet = "Leftovers added.",
+  LeftoversCleared = "Leftovers cleared.",
+  LeftoversFailed = "Unable to update leftovers."
 }
 
 const ELLIPSIS = "\u2026";
-
-type PlannerDayCardProps = {
-  id: string;
-  weekdayLabel: string;
-  dateLabel: string;
-  mealName: string;
-  mealId: string | null;
-  locked: boolean;
-  updating: boolean;
-  disableActions: boolean;
-  disableSwap: boolean;
-  meals: Array<{ id: string; name: string }>;
-  mealMissing: boolean;
-  mealPoolEmpty: boolean;
-  onToggleLock: (id: string, nextLocked: boolean) => void;
-  onSwapMeal: (id: string, mealId: string | null) => void;
-};
-
-const PlannerDayCard = memo(function PlannerDayCard({
-  id,
-  weekdayLabel,
-  dateLabel,
-  mealName,
-  mealId,
-  locked,
-  updating,
-  disableActions,
-  disableSwap,
-  meals,
-  mealMissing,
-  mealPoolEmpty,
-  onToggleLock,
-  onSwapMeal
-}: PlannerDayCardProps) {
-  const selectId = `plan-day-${id}`;
-
-  const handleToggle = useCallback(() => {
-    onToggleLock(id, !locked);
-  }, [id, locked, onToggleLock]);
-
-  const handleChange = useCallback(
-    (event: ChangeEvent<HTMLSelectElement>) => {
-      const value = event.target.value;
-      const nextMealId = value ? value : null;
-      const currentMealId = mealId ?? null;
-      if (nextMealId === currentMealId) {
-        return;
-      }
-      onSwapMeal(id, nextMealId);
-    },
-    [id, mealId, onSwapMeal]
-  );
-
-  const lockLabel = locked ? "Unlock Day" : "Lock Day";
-  const lockStatus = locked ? "Locked" : "Unlocked";
-
-  return (
-    <Card className={styles.dayCard}>
-      <div className={styles.dayHeader}>
-        <div className={styles.dayTitle}>
-          <span className={styles.dayName}>{weekdayLabel}</span>
-          <span className={styles.dayDate}>{dateLabel}</span>
-        </div>
-        <span
-          className={`${styles.lockBadge}${locked ? ` ${styles.lockedBadge}` : ""}`}
-        >
-          {lockStatus}
-        </span>
-      </div>
-
-      <div className={styles.mealBlock}>
-        <span className={styles.mealLabel}>Meal</span>
-        <span className={styles.mealName}>{mealName}</span>
-      </div>
-
-      <div className={styles.controlGroup}>
-        <label htmlFor={selectId} className={formStyles.label}>
-          Swap Meal
-        </label>
-        <Select
-          id={selectId}
-          name={`meal-${id}`}
-          value={mealId ?? ""}
-          onChange={handleChange}
-          disabled={disableSwap}
-        >
-          <option value="">Unassigned</option>
-          {mealMissing && mealId ? (
-            <option value={mealId} disabled>
-              Missing meal
-            </option>
-          ) : null}
-          {meals.map((meal) => (
-            <option key={meal.id} value={meal.id}>
-              {meal.name}
-            </option>
-          ))}
-        </Select>
-        {mealPoolEmpty ? (
-          <p className={styles.helperText}>Add meals to enable swapping.</p>
-        ) : null}
-      </div>
-
-      <div className={styles.dayActions}>
-        <Button type="button" variant="secondary" onClick={handleToggle} disabled={disableActions}>
-          {lockLabel}
-        </Button>
-      </div>
-
-      {updating ? (
-        <p className={styles.dayStatus} role="status" aria-live="polite">
-          Updating{ELLIPSIS}
-        </p>
-      ) : null}
-    </Card>
-  );
-});
 
 export default function PlannerClient() {
   const api = useMemo(() => createApiClient(), []);
@@ -258,6 +142,28 @@ export default function PlannerClient() {
     () => (plan ? plan.days.some((day) => Boolean(day.mealId)) : false),
     [plan]
   );
+
+  const dayViews = useMemo(() => {
+    if (!plan) {
+      return [];
+    }
+
+    return buildPlannerDayViews({
+      days: plan.days,
+      mealNameById,
+      mealIdSet,
+      dayNameFormatter,
+      dayDateFormatter,
+      updatingDayId
+    });
+  }, [
+    plan,
+    mealNameById,
+    mealIdSet,
+    dayNameFormatter,
+    dayDateFormatter,
+    updatingDayId
+  ]);
 
   const loadPlanner = useCallback(async () => {
     if (isMountedRef.current) {
@@ -463,6 +369,84 @@ export default function PlannerClient() {
     [api, applyPlanDayUpdate, router, updatingDayId]
   );
 
+  const handleSetLeftovers = useCallback(
+    async (id: string, sourceId: string) => {
+      if (updatingDayId) {
+        return;
+      }
+
+      setStatus(null);
+      setUpdatingDayId(id);
+
+      try {
+        const responsePayload = await api.PATCH("/api/plans/days/{id}", {
+          params: { path: { id } },
+          body: { leftoverFromPlanDayId: sourceId }
+        });
+
+        if (responsePayload.response?.status === 401) {
+          router.replace("/");
+          return;
+        }
+
+        if (!responsePayload.response?.ok || !responsePayload.data) {
+          setStatus(
+            getApiErrorMessage(responsePayload.error) ??
+              PlannerStatusMessage.LeftoversFailed
+          );
+          return;
+        }
+
+        applyPlanDayUpdate(responsePayload.data);
+        setStatus(PlannerStatusMessage.LeftoversSet);
+      } catch {
+        setStatus(PlannerStatusMessage.LeftoversFailed);
+      } finally {
+        setUpdatingDayId(null);
+      }
+    },
+    [api, applyPlanDayUpdate, router, updatingDayId]
+  );
+
+  const handleClearLeftovers = useCallback(
+    async (id: string) => {
+      if (updatingDayId) {
+        return;
+      }
+
+      setStatus(null);
+      setUpdatingDayId(id);
+
+      try {
+        const responsePayload = await api.PATCH("/api/plans/days/{id}", {
+          params: { path: { id } },
+          body: { leftoverFromPlanDayId: null }
+        });
+
+        if (responsePayload.response?.status === 401) {
+          router.replace("/");
+          return;
+        }
+
+        if (!responsePayload.response?.ok || !responsePayload.data) {
+          setStatus(
+            getApiErrorMessage(responsePayload.error) ??
+              PlannerStatusMessage.LeftoversFailed
+          );
+          return;
+        }
+
+        applyPlanDayUpdate(responsePayload.data);
+        setStatus(PlannerStatusMessage.LeftoversCleared);
+      } catch {
+        setStatus(PlannerStatusMessage.LeftoversFailed);
+      } finally {
+        setUpdatingDayId(null);
+      }
+    },
+    [api, applyPlanDayUpdate, router, updatingDayId]
+  );
+
   if (checkingSession) {
     return (
       <PageLayout title="Planner" subtitle={weekLabel} size="wide" nav={<AppNav />}>
@@ -526,44 +510,35 @@ export default function PlannerClient() {
           ) : null}
 
           <ul className={styles.weekGrid}>
-            {plan.days.map((day) => {
-              const parsedDate = parseDateString(day.date);
-              const weekdayLabel = parsedDate
-                ? dayNameFormatter.format(parsedDate)
-                : day.date;
-              const dateLabel = parsedDate
-                ? dayDateFormatter.format(parsedDate)
-                : day.date;
-              const normalizedMealId = day.mealId ?? null;
-              const mealName = normalizedMealId
-                ? mealNameById.get(normalizedMealId) ?? "Unknown meal"
-                : "Unassigned";
-              const mealMissing = normalizedMealId
-                ? !mealIdSet.has(normalizedMealId)
-                : false;
-              const isUpdating = updatingDayId === day.id;
-
-              return (
-                <li key={day.id} className={styles.dayItem}>
-                  <PlannerDayCard
-                    id={day.id}
-                    weekdayLabel={weekdayLabel}
-                    dateLabel={dateLabel}
-                    mealName={mealName}
-                    mealId={normalizedMealId}
-                    locked={day.locked}
-                    updating={isUpdating}
-                    disableActions={disableActions}
-                    disableSwap={disableActions || !hasMealPool}
-                    meals={mealOptions}
-                    mealMissing={mealMissing}
-                    mealPoolEmpty={mealPoolEmpty}
-                    onToggleLock={handleToggleLock}
-                    onSwapMeal={handleSwapMeal}
-                  />
-                </li>
-              );
-            })}
+            {dayViews.map((dayView) => (
+              <li key={dayView.id} className={styles.dayItem}>
+                <PlannerDayCard
+                  id={dayView.id}
+                  weekdayLabel={dayView.weekdayLabel}
+                  dateLabel={dayView.dateLabel}
+                  mealName={dayView.mealName}
+                  mealId={dayView.mealId}
+                  leftoverFromLabel={dayView.leftoverFromLabel}
+                  leftoverSourceId={dayView.leftoverSourceId}
+                  leftoverSourceLabel={dayView.leftoverSourceLabel}
+                  locked={dayView.locked}
+                  updating={dayView.updating}
+                  disableActions={disableActions}
+                  disableSwap={
+                    disableActions ||
+                    !hasMealPool ||
+                    Boolean(dayView.leftoverFromPlanDayId)
+                  }
+                  meals={mealOptions}
+                  mealMissing={dayView.mealMissing}
+                  mealPoolEmpty={mealPoolEmpty}
+                  onToggleLock={handleToggleLock}
+                  onSwapMeal={handleSwapMeal}
+                  onSetLeftovers={handleSetLeftovers}
+                  onClearLeftovers={handleClearLeftovers}
+                />
+              </li>
+            ))}
           </ul>
         </>
       )}

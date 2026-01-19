@@ -73,6 +73,7 @@ const samplePlanDay = {
   planId: "44444444-4444-4444-8444-444444444444",
   date: "2024-02-12",
   mealId: "55555555-5555-4555-8555-555555555555",
+  leftoverFromPlanDayId: null,
   locked: true,
   createdAt: "2024-02-10T09:00:00Z",
   createdBy: "user-1",
@@ -153,7 +154,7 @@ describe("PATCH /api/plans/days/[id]", () => {
     );
 
     expect(await response.json()).toEqual({
-      error: "At least one field (mealId or locked) must be provided."
+      error: "At least one field (mealId, locked, or leftoverFromPlanDayId) must be provided."
     });
   });
 

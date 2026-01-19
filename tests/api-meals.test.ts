@@ -72,6 +72,7 @@ const sampleMeal = {
   id: mealId,
   name: "Spaghetti",
   notes: "Family favorite",
+  imageUrl: null,
   createdAt: "2024-02-12T10:00:00Z",
   createdBy: "user-1",
   updatedAt: null,

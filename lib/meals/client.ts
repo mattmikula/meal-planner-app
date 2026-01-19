@@ -6,7 +6,8 @@ const MAX_NOTES_LENGTH = 1000;
 const NAME_REQUIRED_MESSAGE = "Name is required.";
 const NAME_LENGTH_MESSAGE = "Name must be 200 characters or less.";
 const NOTES_LENGTH_MESSAGE = "Notes must be 1000 characters or less.";
-const UPDATE_REQUIRED_MESSAGE = "At least one field (name or notes) must be provided.";
+const IMAGE_URL_MESSAGE = "Image URL must be a valid URL.";
+const UPDATE_REQUIRED_MESSAGE = "At least one field (name, notes, or imageUrl) must be provided.";
 
 type CreateMealRequest = components["schemas"]["CreateMealRequest"];
 type UpdateMealRequest = components["schemas"]["UpdateMealRequest"];
@@ -19,7 +20,8 @@ const trimValue = (value: string) => value.trim();
 
 export function buildCreateMealRequest(
   name: string,
-  notes: string
+  notes: string,
+  imageUrl: string
 ): RequestResult<CreateMealRequest> {
   const trimmedName = trimValue(name);
   if (!trimmedName) {
@@ -35,21 +37,40 @@ export function buildCreateMealRequest(
     return { ok: false, error: NOTES_LENGTH_MESSAGE };
   }
 
-  const payload: CreateMealRequest = trimmedNotes
-    ? { name: trimmedName, notes: trimmedNotes }
-    : { name: trimmedName };
+  const trimmedImageUrl = trimValue(imageUrl);
+  if (trimmedImageUrl) {
+    try {
+      new URL(trimmedImageUrl);
+    } catch {
+      return { ok: false, error: IMAGE_URL_MESSAGE };
+    }
+  }
+
+  const payload: CreateMealRequest = {
+    name: trimmedName
+  };
+
+  if (trimmedNotes) {
+    payload.notes = trimmedNotes;
+  }
+
+  if (trimmedImageUrl) {
+    payload.imageUrl = trimmedImageUrl;
+  }
 
   return { ok: true, value: payload };
 }
 
 export function buildUpdateMealRequest(
   name: string,
-  notes: string
+  notes: string,
+  imageUrl: string
 ): RequestResult<UpdateMealRequest> {
   const trimmedName = trimValue(name);
   const trimmedNotes = trimValue(notes);
+  const trimmedImageUrl = trimValue(imageUrl);
 
-  if (!trimmedName && !trimmedNotes) {
+  if (!trimmedName && !trimmedNotes && !trimmedImageUrl) {
     return { ok: false, error: UPDATE_REQUIRED_MESSAGE };
   }
 
@@ -61,11 +82,22 @@ export function buildUpdateMealRequest(
     return { ok: false, error: NOTES_LENGTH_MESSAGE };
   }
 
+  if (trimmedImageUrl) {
+    try {
+      new URL(trimmedImageUrl);
+    } catch {
+      return { ok: false, error: IMAGE_URL_MESSAGE };
+    }
+  }
+
   const payload: UpdateMealRequest = {};
   if (trimmedName) {
     payload.name = trimmedName;
   }
+
   payload.notes = trimmedNotes;
+
+  payload.imageUrl = trimmedImageUrl ? trimmedImageUrl : null;
 
   return { ok: true, value: payload };
 }

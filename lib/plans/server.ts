@@ -29,6 +29,7 @@ type PlanDayRow = {
   plan_id: string;
   date: string;
   meal_id: string | null;
+  leftover_from_plan_day_id: string | null;
   locked: boolean;
   created_at: string;
   created_by: string;
@@ -46,6 +47,9 @@ const WEEK_START_TYPE_MESSAGE = "Week start must be a string.";
 const WEEK_START_FORMAT_MESSAGE = "Week start must be in YYYY-MM-DD format.";
 const WEEK_START_INVALID_MESSAGE = "Week start must be a valid date.";
 const WEEK_START_UNEXPECTED_MESSAGE = "Week start could not be parsed.";
+const LEFTOVER_SAME_DAY_MESSAGE = "Leftovers cannot reference the same day.";
+const LEFTOVER_SOURCE_MISSING_MESSAGE = "Leftover source day not found.";
+const LEFTOVER_SOURCE_NO_MEAL_MESSAGE = "Leftover source day has no meal.";
 
 const DATE_PATTERN = /^\d{4}-\d{2}-\d{2}$/;
 
@@ -128,10 +132,17 @@ export const planDayIdParamSchema = z.object({
 
 export const updatePlanDaySchema = z.object({
   mealId: z.string().uuid("Meal ID must be a valid UUID.").nullable().optional(),
-  locked: z.boolean().optional()
-}).refine((data) => data.mealId !== undefined || data.locked !== undefined, {
-  message: "At least one field (mealId or locked) must be provided."
-}) satisfies z.ZodType<UpdatePlanDayRequest>;
+  locked: z.boolean().optional(),
+  leftoverFromPlanDayId: z.string().uuid("Leftover source must be a valid UUID.").nullable().optional()
+}).refine(
+  (data) =>
+    data.mealId !== undefined ||
+    data.locked !== undefined ||
+    data.leftoverFromPlanDayId !== undefined,
+  {
+    message: "At least one field (mealId, locked, or leftoverFromPlanDayId) must be provided."
+  }
+) satisfies z.ZodType<UpdatePlanDayRequest>;
 
 export type UpdatePlanDayInput = z.infer<typeof updatePlanDaySchema>;
 
@@ -202,7 +213,7 @@ export const buildPlanDayAssignments = (
     throw new PlanGenerationError("No meals available to generate a plan.");
   }
 
-  const unlockedDays = days.filter((day) => !day.locked);
+  const unlockedDays = days.filter((day) => !day.locked && !day.leftoverFromPlanDayId);
   if (unlockedDays.length === 0) {
     return [];
   }
@@ -238,6 +249,7 @@ const mapPlanDayRow = (row: PlanDayRow): PlanDay => ({
   planId: row.plan_id,
   date: row.date,
   mealId: row.meal_id,
+  leftoverFromPlanDayId: row.leftover_from_plan_day_id,
   locked: row.locked,
   createdAt: row.created_at,
   createdBy: row.created_by,
@@ -247,8 +259,10 @@ const mapPlanDayRow = (row: PlanDayRow): PlanDay => ({
 
 type PlanDayMutation = {
   nextMealId: string | null;
+  nextLeftoverFromPlanDayId: string | null;
   nextLocked: boolean;
   mealChanged: boolean;
+  leftoverChanged: boolean;
   lockedChanged: boolean;
 };
 
@@ -257,16 +271,104 @@ const derivePlanDayMutation = (
   input: UpdatePlanDayInput
 ): PlanDayMutation => {
   const nextMealId = input.mealId !== undefined ? input.mealId : planDayRow.meal_id;
+  const nextLeftoverFromPlanDayId =
+    input.leftoverFromPlanDayId !== undefined
+      ? input.leftoverFromPlanDayId
+      : planDayRow.leftover_from_plan_day_id;
   const nextLocked = input.locked !== undefined ? input.locked : planDayRow.locked;
   const mealChanged = input.mealId !== undefined && input.mealId !== planDayRow.meal_id;
+  const leftoverChanged =
+    input.leftoverFromPlanDayId !== undefined &&
+    input.leftoverFromPlanDayId !== planDayRow.leftover_from_plan_day_id;
   const lockedChanged = input.locked !== undefined && input.locked !== planDayRow.locked;
 
   return {
     nextMealId,
+    nextLeftoverFromPlanDayId,
     nextLocked,
     mealChanged,
+    leftoverChanged,
     lockedChanged
   };
+};
+
+const shouldValidateMealSelection = (input: UpdatePlanDayInput) =>
+  input.mealId !== undefined &&
+  input.mealId !== null &&
+  (input.leftoverFromPlanDayId === undefined || input.leftoverFromPlanDayId === null);
+
+const validateMealSelection = async (
+  supabase: SupabaseClient,
+  householdId: string,
+  input: UpdatePlanDayInput
+) => {
+  if (shouldValidateMealSelection(input)) {
+    await assertMealInHousehold(supabase, householdId, input.mealId as string);
+  }
+};
+
+const resolveLeftoverMutation = async (
+  supabase: SupabaseClient,
+  householdId: string,
+  planDayRow: PlanDayRow,
+  input: UpdatePlanDayInput
+): Promise<Partial<PlanDayMutation> | null> => {
+  if (input.leftoverFromPlanDayId === undefined) {
+    return null;
+  }
+
+  if (input.leftoverFromPlanDayId === planDayRow.id) {
+    throw new PlanMutationError(LEFTOVER_SAME_DAY_MESSAGE);
+  }
+
+  if (!input.leftoverFromPlanDayId) {
+    return {
+      nextLeftoverFromPlanDayId: null,
+      leftoverChanged: planDayRow.leftover_from_plan_day_id !== null
+    };
+  }
+
+  const sourceDay = await fetchPlanDayRowById(
+    supabase,
+    householdId,
+    planDayRow.plan_id,
+    input.leftoverFromPlanDayId
+  );
+
+  if (!sourceDay) {
+    throw new PlanMutationError(LEFTOVER_SOURCE_MISSING_MESSAGE);
+  }
+
+  if (!sourceDay.meal_id) {
+    throw new PlanMutationError(LEFTOVER_SOURCE_NO_MEAL_MESSAGE);
+  }
+
+  return {
+    nextLeftoverFromPlanDayId: sourceDay.id,
+    leftoverChanged: sourceDay.id !== planDayRow.leftover_from_plan_day_id,
+    nextMealId: sourceDay.meal_id,
+    mealChanged: sourceDay.meal_id !== planDayRow.meal_id
+  };
+};
+
+const applyMealSelectionOverrides = (
+  planDayRow: PlanDayRow,
+  input: UpdatePlanDayInput,
+  mutation: PlanDayMutation
+): PlanDayMutation => {
+  if (input.leftoverFromPlanDayId !== undefined) {
+    return mutation;
+  }
+
+  if (input.mealId !== undefined && planDayRow.leftover_from_plan_day_id) {
+    return {
+      ...mutation,
+      nextLeftoverFromPlanDayId: null,
+      leftoverChanged: true
+    };
+  }
+
+  return mutation;
 };
 
 const fetchPlanDayRow = async (
@@ -276,8 +378,29 @@ const fetchPlanDayRow = async (
 ): Promise<PlanDayRow | null> => {
   const { data, error } = await supabase
     .from("plan_days")
-    .select("id, plan_id, date, meal_id, locked, created_at, created_by, updated_at, updated_by")
+    .select("id, plan_id, date, meal_id, leftover_from_plan_day_id, locked, created_at, created_by, updated_at, updated_by")
     .eq("id", planDayId)
+    .eq("household_id", householdId)
+    .maybeSingle();
+
+  if (error) {
+    throw new Error(error.message);
+  }
+
+  return data as PlanDayRow | null;
+};
+
+const fetchPlanDayRowById = async (
+  supabase: SupabaseClient,
+  householdId: string,
+  planId: string,
+  planDayId: string
+): Promise<PlanDayRow | null> => {
+  const { data, error } = await supabase
+    .from("plan_days")
+    .select("id, plan_id, date, meal_id, leftover_from_plan_day_id, locked, created_at, created_by, updated_at, updated_by")
+    .eq("id", planDayId)
+    .eq("plan_id", planId)
     .eq("household_id", householdId)
     .maybeSingle();
 
@@ -326,6 +449,10 @@ const applyPlanDayUpdate = async (
     updates.meal_id = mutation.nextMealId;
   }
 
+  if (mutation.leftoverChanged) {
+    updates.leftover_from_plan_day_id = mutation.nextLeftoverFromPlanDayId;
+  }
+
   if (mutation.lockedChanged) {
     updates.locked = mutation.nextLocked;
   }
@@ -335,7 +462,7 @@ const applyPlanDayUpdate = async (
     .update(updates)
     .eq("id", planDayId)
     .eq("household_id", householdId)
-    .select("id, plan_id, date, meal_id, locked, created_at, created_by, updated_at, updated_by")
+    .select("id, plan_id, date, meal_id, leftover_from_plan_day_id, locked, created_at, created_by, updated_at, updated_by")
     .maybeSingle();
 
   if (updateError) {
@@ -374,6 +501,25 @@ const buildPlanDayAuditEvents = (
   now: string
 ) => {
   const auditEvents = [];
+
+  if (mutation.leftoverChanged) {
+    auditEvents.push({
+      household_id: householdId,
+      entity_type: "plan_day",
+      entity_id: updatedPlanDay.id,
+      action: mutation.nextLeftoverFromPlanDayId
+        ? "plan_day.leftover_set"
+        : "plan_day.leftover_cleared",
+      actor_user_id: userId,
+      summary: {
+        planDayId: updatedPlanDay.id,
+        planId: updatedPlanDay.planId,
+        date: updatedPlanDay.date,
+        leftoverFromPlanDayId: updatedPlanDay.leftoverFromPlanDayId
+      },
+      created_at: now
+    });
+  }
 
   if (mutation.lockedChanged) {
     auditEvents.push({
@@ -510,7 +656,7 @@ const fetchPlanDays = async (
   const weekDates = buildWeekDates(weekStart);
   const { data, error } = await supabase
     .from("plan_days")
-    .select("id, plan_id, date, meal_id, locked, created_at, created_by, updated_at, updated_by")
+    .select("id, plan_id, date, meal_id, leftover_from_plan_day_id, locked, created_at, created_by, updated_at, updated_by")
     .eq("plan_id", planId)
     .in("date", weekDates)
     .order("date", { ascending: true });
@@ -583,12 +729,24 @@ export async function updatePlanDay(
     return null;
   }
 
-  if (input.mealId !== undefined && input.mealId !== null) {
-    await assertMealInHousehold(supabase, householdId, input.mealId);
+  await validateMealSelection(supabase, householdId, input);
+
+  let mutation = derivePlanDayMutation(planDayRow, input);
+
+  const leftoverMutation = await resolveLeftoverMutation(
+    supabase,
+    householdId,
+    planDayRow,
+    input
+  );
+
+  if (leftoverMutation) {
+    mutation = { ...mutation, ...leftoverMutation };
+  } else {
+    mutation = applyMealSelectionOverrides(planDayRow, input, mutation);
   }
 
-  const mutation = derivePlanDayMutation(planDayRow, input);
-  if (!mutation.mealChanged && !mutation.lockedChanged) {
+  if (!mutation.mealChanged && !mutation.lockedChanged && !mutation.leftoverChanged) {
     return mapPlanDayRow(planDayRow);
   }
 

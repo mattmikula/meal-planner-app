@@ -51,6 +51,12 @@
   gap: var(--space-3);
 }
 
+.badgeRow {
+  display: inline-flex;
+  align-items: center;
+  gap: var(--space-2);
+}
+
 .dayTitle {
   display: flex;
   flex-direction: column;
@@ -84,6 +90,12 @@
 .lockedBadge {
   background: var(--color-accent-soft);
   border-color: var(--color-accent-alpha-30);
+}
+
+.leftoverBadge {
+  background: var(--color-surface-strong);
+  border-color: var(--color-border);
+  color: var(--color-muted);
 }
 
 .mealBlock {
@@ -122,6 +134,11 @@
   align-items: center;
   gap: var(--space-2);
   flex-wrap: wrap;
+}
+
+.leftoverHint {
+  color: var(--color-muted);
+  font-size: 0.85rem;
 }
 
 .dayStatus {

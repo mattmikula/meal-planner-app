@@ -71,6 +71,7 @@ const samplePlanDays = Array.from({ length: 7 }, (_, index) => ({
   planId: "plan-1",
   date: `2024-02-${String(12 + index).padStart(2, "0")}`,
   mealId: null,
+  leftoverFromPlanDayId: null,
   locked: false,
   createdAt: "2024-02-10T09:00:00Z",
   createdBy: "user-1",

@@ -20,6 +20,8 @@ tags:
     description: Household audit trail
   - name: Meals
     description: Meal management endpoints
+  - name: Groceries
+    description: Household grocery list endpoints
 
 paths:
   /api/health:
@@ -573,6 +575,166 @@ paths:
               schema:
                 $ref: "#/components/schemas/Error"
 
+  /api/groceries:
+    get:
+      summary: List grocery items
+      description: Returns all grocery items for the current household.
+      tags:
+        - Groceries
+      security:
+        - bearerAuth: []
+      responses:
+        "200":
+          description: Grocery items.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/GroceryItemsResponse"
+        "401":
+          description: Missing or invalid credentials.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Error"
+        "500":
+          description: Grocery lookup failed.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Error"
+    post:
+      summary: Create grocery item
+      description: Creates a grocery item for the current household.
+      tags:
+        - Groceries
+      security:
+        - bearerAuth: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/CreateGroceryItemRequest"
+      responses:
+        "200":
+          description: Grocery item created.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/GroceryItem"
+        "400":
+          description: Invalid request body.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Error"
+        "401":
+          description: Missing or invalid credentials.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Error"
+        "500":
+          description: Grocery item creation failed.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Error"
+
+  /api/groceries/{id}:
+    patch:
+      summary: Update grocery item
+      description: Updates an existing grocery item.
+      tags:
+        - Groceries
+      security:
+        - bearerAuth: []
+      parameters:
+        - name: id
+          in: path
+          description: Grocery item ID
+          required: true
+          schema:
+            type: string
+            format: uuid
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/UpdateGroceryItemRequest"
+      responses:
+        "200":
+          description: Grocery item updated.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/GroceryItem"
+        "400":
+          description: Invalid request body.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Error"
+        "401":
+          description: Missing or invalid credentials.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Error"
+        "404":
+          description: Grocery item not found.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Error"
+        "500":
+          description: Grocery item update failed.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Error"
+    delete:
+      summary: Delete grocery item
+      description: Deletes a grocery item.
+      tags:
+        - Groceries
+      security:
+        - bearerAuth: []
+      parameters:
+        - name: id
+          in: path
+          description: Grocery item ID
+          required: true
+          schema:
+            type: string
+            format: uuid
+      responses:
+        "200":
+          description: Grocery item deleted.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/DeleteGroceryItemResponse"
+        "401":
+          description: Missing or invalid credentials.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Error"
+        "404":
+          description: Grocery item not found.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Error"
+        "500":
+          description: Grocery item deletion failed.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Error"
+
   /api/plans:
     get:
       summary: Fetch weekly plan
@@ -936,6 +1098,10 @@ components:
         notes:
           type: string
           nullable: true
+        imageUrl:
+          type: string
+          format: uri
+          nullable: true
         createdAt:
           type: string
           format: date-time
@@ -961,6 +1127,89 @@ components:
           items:
             $ref: "#/components/schemas/Meal"
 
+    GroceryItem:
+      type: object
+      required:
+        - id
+        - name
+        - checked
+        - createdAt
+        - createdBy
+      properties:
+        id:
+          type: string
+          format: uuid
+        name:
+          type: string
+        quantity:
+          type: string
+          nullable: true
+        checked:
+          type: boolean
+        createdAt:
+          type: string
+          format: date-time
+        createdBy:
+          type: string
+          format: uuid
+        updatedAt:
+          type: string
+          format: date-time
+          nullable: true
+        updatedBy:
+          type: string
+          format: uuid
+          nullable: true
+
+    GroceryItemsResponse:
+      type: object
+      required:
+        - items
+      properties:
+        items:
+          type: array
+          items:
+            $ref: "#/components/schemas/GroceryItem"
+
+    CreateGroceryItemRequest:
+      type: object
+      required:
+        - name
+      properties:
+        name:
+          type: string
+          minLength: 1
+          maxLength: 200
+        quantity:
+          type: string
+          maxLength: 100
+        checked:
+          type: boolean
+
+    UpdateGroceryItemRequest:
+      type: object
+      description: At least one field (name, quantity, or checked) must be provided.
+      properties:
+        name:
+          type: string
+          minLength: 1
+          maxLength: 200
+        quantity:
+          type: string
+          maxLength: 100
+          nullable: true
+        checked:
+          type: boolean
+
+    DeleteGroceryItemResponse:
+      type: object
+      required:
+        - ok
+      properties:
+        ok:
+          type: boolean
+          const: true
+
     PlanWeekStart:
       type: string
       format: date
@@ -977,7 +1226,7 @@ components:
 
     UpdatePlanDayRequest:
       type: object
-      description: At least one field (mealId or locked) must be provided.
+      description: At least one field (mealId, locked, or leftoverFromPlanDayId) must be provided.
       properties:
         mealId:
           type: string
@@ -985,6 +1234,10 @@ components:
           nullable: true
         locked:
           type: boolean
+        leftoverFromPlanDayId:
+          type: string
+          format: uuid
+          nullable: true
 
     PlanDay:
       type: object
@@ -1006,6 +1259,10 @@ components:
           type: string
           format: date
         mealId:
+          type: string
+          format: uuid
+          nullable: true
+        leftoverFromPlanDayId:
           type: string
           format: uuid
           nullable: true
@@ -1071,10 +1328,13 @@ components:
         notes:
           type: string
           maxLength: 1000
+        imageUrl:
+          type: string
+          format: uri
 
     UpdateMealRequest:
       type: object
-      description: At least one field (name or notes) must be provided.
+      description: At least one field (name, notes, or imageUrl) must be provided.
       properties:
         name:
           type: string
@@ -1083,6 +1343,10 @@ components:
         notes:
           type: string
           maxLength: 1000
+        imageUrl:
+          type: string
+          format: uri
+          nullable: true
 
     DeleteMealResponse:
       type: object

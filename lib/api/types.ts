@@ -790,6 +790,252 @@ export interface paths {
         };
         trace?: never;
     };
+    "/api/groceries": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * List grocery items
+         * @description Returns all grocery items for the current household.
+         */
+        get: {
+            parameters: {
+                query?: never;
+                header?: never;
+                path?: never;
+                cookie?: never;
+            };
+            requestBody?: never;
+            responses: {
+                /** @description Grocery items. */
+                200: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["GroceryItemsResponse"];
+                    };
+                };
+                /** @description Missing or invalid credentials. */
+                401: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["Error"];
+                    };
+                };
+                /** @description Grocery lookup failed. */
+                500: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["Error"];
+                    };
+                };
+            };
+        };
+        put?: never;
+        /**
+         * Create grocery item
+         * @description Creates a grocery item for the current household.
+         */
+        post: {
+            parameters: {
+                query?: never;
+                header?: never;
+                path?: never;
+                cookie?: never;
+            };
+            requestBody: {
+                content: {
+                    "application/json": components["schemas"]["CreateGroceryItemRequest"];
+                };
+            };
+            responses: {
+                /** @description Grocery item created. */
+                200: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["GroceryItem"];
+                    };
+                };
+                /** @description Invalid request body. */
+                400: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["Error"];
+                    };
+                };
+                /** @description Missing or invalid credentials. */
+                401: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["Error"];
+                    };
+                };
+                /** @description Grocery item creation failed. */
+                500: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["Error"];
+                    };
+                };
+            };
+        };
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/groceries/{id}": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        post?: never;
+        /**
+         * Delete grocery item
+         * @description Deletes a grocery item.
+         */
+        delete: {
+            parameters: {
+                query?: never;
+                header?: never;
+                path: {
+                    /** @description Grocery item ID */
+                    id: string;
+                };
+                cookie?: never;
+            };
+            requestBody?: never;
+            responses: {
+                /** @description Grocery item deleted. */
+                200: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["DeleteGroceryItemResponse"];
+                    };
+                };
+                /** @description Missing or invalid credentials. */
+                401: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["Error"];
+                    };
+                };
+                /** @description Grocery item not found. */
+                404: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["Error"];
+                    };
+                };
+                /** @description Grocery item deletion failed. */
+                500: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["Error"];
+                    };
+                };
+            };
+        };
+        options?: never;
+        head?: never;
+        /**
+         * Update grocery item
+         * @description Updates an existing grocery item.
+         */
+        patch: {
+            parameters: {
+                query?: never;
+                header?: never;
+                path: {
+                    /** @description Grocery item ID */
+                    id: string;
+                };
+                cookie?: never;
+            };
+            requestBody: {
+                content: {
+                    "application/json": components["schemas"]["UpdateGroceryItemRequest"];
+                };
+            };
+            responses: {
+                /** @description Grocery item updated. */
+                200: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["GroceryItem"];
+                    };
+                };
+                /** @description Invalid request body. */
+                400: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["Error"];
+                    };
+                };
+                /** @description Missing or invalid credentials. */
+                401: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["Error"];
+                    };
+                };
+                /** @description Grocery item not found. */
+                404: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["Error"];
+                    };
+                };
+                /** @description Grocery item update failed. */
+                500: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["Error"];
+                    };
+                };
+            };
+        };
+        trace?: never;
+    };
     "/api/plans": {
         parameters: {
             query?: never;
@@ -1107,6 +1353,8 @@ export interface components {
             id: string;
             name: string;
             notes?: string | null;
+            /** Format: uri */
+            imageUrl?: string | null;
             /** Format: date-time */
             createdAt: string;
             /** Format: uuid */
@@ -1119,6 +1367,39 @@ export interface components {
         MealsResponse: {
             meals: components["schemas"]["Meal"][];
         };
+        GroceryItem: {
+            /** Format: uuid */
+            id: string;
+            name: string;
+            quantity?: string | null;
+            checked: boolean;
+            /** Format: date-time */
+            createdAt: string;
+            /** Format: uuid */
+            createdBy: string;
+            /** Format: date-time */
+            updatedAt?: string | null;
+            /** Format: uuid */
+            updatedBy?: string | null;
+        };
+        GroceryItemsResponse: {
+            items: components["schemas"]["GroceryItem"][];
+        };
+        CreateGroceryItemRequest: {
+            name: string;
+            quantity?: string;
+            checked?: boolean;
+        };
+        /** @description At least one field (name, quantity, or checked) must be provided. */
+        UpdateGroceryItemRequest: {
+            name?: string;
+            quantity?: string | null;
+            checked?: boolean;
+        };
+        DeleteGroceryItemResponse: {
+            /** @constant */
+            ok: true;
+        };
         /**
          * Format: date
          * @example 2024-02-12
@@ -1127,11 +1408,13 @@ export interface components {
         PlanGenerateRequest: {
             weekStart: components["schemas"]["PlanWeekStart"];
         };
-        /** @description At least one field (mealId or locked) must be provided. */
+        /** @description At least one field (mealId, locked, or leftoverFromPlanDayId) must be provided. */
         UpdatePlanDayRequest: {
             /** Format: uuid */
             mealId?: string | null;
             locked?: boolean;
+            /** Format: uuid */
+            leftoverFromPlanDayId?: string | null;
         };
         PlanDay: {
             /** Format: uuid */
@@ -1142,6 +1425,8 @@ export interface components {
             date: string;
             /** Format: uuid */
             mealId?: string | null;
+            /** Format: uuid */
+            leftoverFromPlanDayId?: string | null;
             locked: boolean;
             /** Format: date-time */
             createdAt: string;
@@ -1169,11 +1454,15 @@ export interface components {
         CreateMealRequest: {
             name: string;
             notes?: string;
+            /** Format: uri */
+            imageUrl?: string;
         };
-        /** @description At least one field (name or notes) must be provided. */
+        /** @description At least one field (name, notes, or imageUrl) must be provided. */
         UpdateMealRequest: {
             name?: string;
             notes?: string;
+            /** Format: uri */
+            imageUrl?: string | null;
         };
         DeleteMealResponse: {
             /** @constant */
