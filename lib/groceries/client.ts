@@ -1,4 +1,5 @@
 import type { components } from "@/lib/api/types";
+import { parseIngredientList } from "@/lib/ingredients/client";
 
 const MAX_NAME_LENGTH = 200;
 const MAX_QUANTITY_LENGTH = 100;
@@ -76,4 +77,15 @@ export function buildUpdateGroceryItemRequest(
   }
 
   return { ok: true, value: payload };
+}
+
+export function buildCreateIngredientItemsRequest(
+  rawInput: string
+): RequestResult<CreateGroceryItemRequest[]> {
+  const parsed = parseIngredientList(rawInput, false);
+  if (!parsed.ok) {
+    return parsed;
+  }
+
+  return { ok: true, value: parsed.value.map((name) => ({ name })) };
 }

@@ -2,6 +2,7 @@ import { describe, expect, it } from "vitest";
 
 import {
   buildCreateGroceryItemRequest,
+  buildCreateIngredientItemsRequest,
   buildUpdateGroceryItemRequest
 } from "@/lib/groceries/client";
 
@@ -54,6 +55,22 @@ describe("buildUpdateGroceryItemRequest", () => {
     expect(buildUpdateGroceryItemRequest("Milk", undefined)).toEqual({
       ok: true,
       value: { name: "Milk" }
+    });
+  });
+});
+
+describe("buildCreateIngredientItemsRequest", () => {
+  it("requires at least one ingredient", () => {
+    expect(buildCreateIngredientItemsRequest("   ")).toEqual({
+      ok: false,
+      error: "Enter at least one ingredient."
+    });
+  });
+
+  it("creates grocery items from ingredient input", () => {
+    expect(buildCreateIngredientItemsRequest("Chicken, rice")).toEqual({
+      ok: true,
+      value: [{ name: "Chicken" }, { name: "rice" }]
     });
   });
 });

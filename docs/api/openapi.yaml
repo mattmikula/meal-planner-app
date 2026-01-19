@@ -22,6 +22,8 @@ tags:
     description: Meal management endpoints
   - name: Groceries
     description: Household grocery list endpoints
+  - name: Ingredients
+    description: Ingredient suggestion endpoints
 
 paths:
   /api/health:
@@ -575,6 +577,52 @@ paths:
               schema:
                 $ref: "#/components/schemas/Error"
 
+  /api/ingredients/suggest:
+    post:
+      summary: Suggest meal from ingredients
+      description: Returns a matching meal based on provided ingredients.
+      tags:
+        - Ingredients
+      security:
+        - bearerAuth: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/IngredientSuggestionRequest"
+      responses:
+        "200":
+          description: Suggested meal.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/IngredientSuggestion"
+        "400":
+          description: Invalid request body.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Error"
+        "401":
+          description: Missing or invalid credentials.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Error"
+        "404":
+          description: No matching meals found.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Error"
+        "500":
+          description: Suggestion lookup failed.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Error"
+
   /api/groceries:
     get:
       summary: List grocery items
@@ -1089,6 +1137,7 @@ components:
         - name
         - createdAt
         - createdBy
+        - ingredients
       properties:
         id:
           type: string
@@ -1116,6 +1165,10 @@ components:
           type: string
           format: uuid
           nullable: true
+        ingredients:
+          type: array
+          items:
+            $ref: "#/components/schemas/IngredientName"
 
     MealsResponse:
       type: object
@@ -1331,10 +1384,14 @@ components:
         imageUrl:
           type: string
           format: uri
+        ingredients:
+          type: array
+          items:
+            $ref: "#/components/schemas/IngredientName"
 
     UpdateMealRequest:
       type: object
-      description: At least one field (name, notes, or imageUrl) must be provided.
+      description: At least one field (name, notes, imageUrl, or ingredients) must be provided.
       properties:
         name:
           type: string
@@ -1347,6 +1404,43 @@ components:
           type: string
           format: uri
           nullable: true
+        ingredients:
+          type: array
+          items:
+            $ref: "#/components/schemas/IngredientName"
+
+    IngredientName:
+      type: string
+      minLength: 1
+      maxLength: 100
+
+    IngredientSuggestionRequest:
+      type: object
+      required:
+        - ingredients
+      properties:
+        ingredients:
+          type: array
+          minItems: 1
+          items:
+            $ref: "#/components/schemas/IngredientName"
+
+    IngredientSuggestion:
+      type: object
+      required:
+        - mealId
+        - name
+        - matchedIngredients
+      properties:
+        mealId:
+          type: string
+          format: uuid
+        name:
+          type: string
+        matchedIngredients:
+          type: array
+          items:
+            $ref: "#/components/schemas/IngredientName"
 
     DeleteMealResponse:
       type: object

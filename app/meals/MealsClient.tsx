@@ -45,11 +45,13 @@ type MealFormProps = {
   name: string;
   notes: string;
   imageUrl: string;
+  ingredients: string;
   isEditing: boolean;
   saving: boolean;
   onNameChange: (value: string) => void;
   onNotesChange: (value: string) => void;
   onImageUrlChange: (value: string) => void;
+  onIngredientsChange: (value: string) => void;
   onSubmit: (event: FormEvent<HTMLFormElement>) => void;
   onCancel: () => void;
 };
@@ -58,11 +60,13 @@ const MealForm = memo(function MealForm({
   name,
   notes,
   imageUrl,
+  ingredients,
   isEditing,
   saving,
   onNameChange,
   onNotesChange,
   onImageUrlChange,
+  onIngredientsChange,
   onSubmit,
   onCancel
 }: MealFormProps) {
@@ -115,6 +119,21 @@ const MealForm = memo(function MealForm({
         />
       </div>
 
+      <div className={layoutStyles.stackSm}>
+        <label htmlFor="meal-ingredients" className={formStyles.label}>
+          Ingredients (optional)
+        </label>
+        <TextArea
+          id="meal-ingredients"
+          name="mealIngredients"
+          value={ingredients}
+          onChange={(event) => onIngredientsChange(event.target.value)}
+          autoComplete="off"
+          maxLength={1000}
+          placeholder="Chicken, rice, lime…"
+        />
+      </div>
+
       <div className={layoutStyles.row}>
         <Button type="submit" disabled={saving}>
           {saving ? "Saving…" : isEditing ? "Update Meal" : "Add Meal"}
@@ -161,6 +180,11 @@ const MealList = memo(function MealList({
                 </div>
                 <p className={layoutStyles.textMuted}>
                   {meal.notes && meal.notes.trim() ? meal.notes : "No notes yet."}
+                </p>
+                <p className={layoutStyles.textMuted}>
+                  {meal.ingredients.length > 0
+                    ? `Ingredients: ${meal.ingredients.join(", ")}`
+                    : "No ingredients yet."}
                 </p>
               </div>
               {meal.imageUrl ? (
@@ -213,6 +237,7 @@ export default function MealsClient() {
   const [formName, setFormName] = useState("");
   const [formNotes, setFormNotes] = useState("");
   const [formImageUrl, setFormImageUrl] = useState("");
+  const [formIngredients, setFormIngredients] = useState("");
   const [editingId, setEditingId] = useState<string | null>(null);
 
   useEffect(() => {
@@ -278,6 +303,7 @@ export default function MealsClient() {
     setFormName("");
     setFormNotes("");
     setFormImageUrl("");
+    setFormIngredients("");
     setEditingId(null);
   }, []);
 
@@ -287,6 +313,7 @@ export default function MealsClient() {
     setFormName(meal.name ?? "");
     setFormNotes(meal.notes ?? "");
     setFormImageUrl(meal.imageUrl ?? "");
+    setFormIngredients(meal.ingredients.join(", "));
   }, []);
 
   const handleCancel = useCallback(() => {
@@ -300,7 +327,12 @@ export default function MealsClient() {
 
       try {
         if (editingId) {
-          const updateResult = buildUpdateMealRequest(formName, formNotes, formImageUrl);
+          const updateResult = buildUpdateMealRequest(
+            formName,
+            formNotes,
+            formImageUrl,
+            formIngredients
+          );
           if (!updateResult.ok) {
             setStatus(updateResult.error);
             return;
@@ -331,7 +363,12 @@ export default function MealsClient() {
           return;
         }
 
-        const createResult = buildCreateMealRequest(formName, formNotes, formImageUrl);
+        const createResult = buildCreateMealRequest(
+          formName,
+          formNotes,
+          formImageUrl,
+          formIngredients
+        );
         if (!createResult.ok) {
           setStatus(createResult.error);
           return;
@@ -371,6 +408,7 @@ export default function MealsClient() {
       formName,
       formNotes,
       formImageUrl,
+      formIngredients,
       loadMeals,
       resetForm,
       router
@@ -439,11 +477,13 @@ export default function MealsClient() {
           name={formName}
           notes={formNotes}
           imageUrl={formImageUrl}
+          ingredients={formIngredients}
           isEditing={Boolean(editingId)}
           saving={saving}
           onNameChange={setFormName}
           onNotesChange={setFormNotes}
           onImageUrlChange={setFormImageUrl}
+          onIngredientsChange={setFormIngredients}
           onSubmit={handleSubmit}
           onCancel={handleCancel}
         />
