@@ -97,9 +97,7 @@ export function buildUpdateMealRequest(
 
   payload.notes = trimmedNotes;
 
-  if (imageUrl !== undefined) {
-    payload.imageUrl = trimmedImageUrl ? trimmedImageUrl : null;
-  }
+  payload.imageUrl = trimmedImageUrl ? trimmedImageUrl : null;
 
   return { ok: true, value: payload };
 }
