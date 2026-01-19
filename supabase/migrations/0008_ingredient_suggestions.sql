@@ -13,7 +13,6 @@ create table if not exists ingredients (
 );
 
 create index if not exists ingredients_household_idx on ingredients(household_id);
-create index if not exists ingredients_household_normalized_idx on ingredients(household_id, normalized_name);
 
 create table if not exists meal_ingredients (
   id uuid primary key default gen_random_uuid(),
