@@ -2,7 +2,11 @@ import "server-only";
 import { z } from "zod";
 
 import type { components, paths } from "@/lib/api/types";
-import { normalizeIngredient } from "@/lib/ingredients/server";
+import {
+  ingredientNameSchema,
+  normalizeIngredient,
+  type IngredientRow
+} from "@/lib/ingredients/server";
 import { createServerSupabaseClient } from "@/lib/supabase/server";
 
 type SupabaseClient = ReturnType<typeof createServerSupabaseClient>;
@@ -30,12 +34,6 @@ type MealRow = {
   updated_by: string | null;
 };
 
-type IngredientRow = {
-  id: string;
-  name: string;
-  normalized_name: string;
-};
-
 type MealIngredientRow = {
   meal_id: string;
   ingredients: { name: string } | { name: string }[] | null;
@@ -46,12 +44,6 @@ export type MealIdParams = paths["/api/meals/{id}"]["patch"]["parameters"]["path
 export const mealIdParamSchema = z.object({
   id: z.string().uuid("Meal ID must be a valid UUID.")
 }) satisfies z.ZodType<MealIdParams>;
-
-const ingredientNameSchema = z
-  .string()
-  .trim()
-  .min(1, "Ingredient name is required.")
-  .max(100, "Ingredient name must be 100 characters or less.");
 
 const sortIngredientNames = (names: string[]) =>
   [...names].sort((a, b) => a.localeCompare(b));

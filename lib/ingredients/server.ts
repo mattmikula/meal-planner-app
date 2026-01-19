@@ -6,7 +6,7 @@ import { createServerSupabaseClient } from "@/lib/supabase/server";
 
 type SupabaseClient = ReturnType<typeof createServerSupabaseClient>;
 
-type IngredientRow = {
+export type IngredientRow = {
   id: string;
   name: string;
   normalized_name: string;
@@ -27,7 +27,7 @@ const NO_MATCHES_MESSAGE = "No matching meals found.";
 export type IngredientSuggestionRequest = components["schemas"]["IngredientSuggestionRequest"];
 export type IngredientSuggestion = components["schemas"]["IngredientSuggestion"];
 
-const ingredientNameSchema = z
+export const ingredientNameSchema = z
   .string()
   .trim()
   .min(1, INGREDIENT_NAME_REQUIRED_MESSAGE)
