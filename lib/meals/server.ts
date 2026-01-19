@@ -10,6 +10,7 @@ export type Meal = {
   id: string;
   name: string;
   notes: string | null;
+  imageUrl: string | null;
   createdAt: string;
   createdBy: string;
   updatedAt: string | null;
@@ -20,6 +21,7 @@ type MealRow = {
   id: string;
   name: string;
   notes: string | null;
+  image_url: string | null;
   created_at: string;
   created_by: string;
   updated_at: string | null;
@@ -36,6 +38,7 @@ const mapMeal = (row: MealRow): Meal => ({
   id: row.id,
   name: row.name,
   notes: row.notes,
+  imageUrl: row.image_url,
   createdAt: row.created_at,
   createdBy: row.created_by,
   updatedAt: row.updated_at,
@@ -44,14 +47,16 @@ const mapMeal = (row: MealRow): Meal => ({
 
 export const createMealSchema = z.object({
   name: z.string().trim().min(1, "Name is required.").max(200, "Name must be 200 characters or less."),
-  notes: z.string().max(1000, "Notes must be 1000 characters or less.").optional()
+  notes: z.string().max(1000, "Notes must be 1000 characters or less.").optional(),
+  imageUrl: z.string().trim().url("Image URL must be a valid URL.").optional()
 }) satisfies z.ZodType<components["schemas"]["CreateMealRequest"]>;
 
 export const updateMealSchema = z.object({
   name: z.string().trim().min(1, "Name is required.").max(200, "Name must be 200 characters or less.").optional(),
-  notes: z.string().max(1000, "Notes must be 1000 characters or less.").optional()
-}).refine(data => data.name !== undefined || data.notes !== undefined, {
-  message: "At least one field (name or notes) must be provided."
+  notes: z.string().max(1000, "Notes must be 1000 characters or less.").optional(),
+  imageUrl: z.string().trim().url("Image URL must be a valid URL.").nullable().optional()
+}).refine(data => data.name !== undefined || data.notes !== undefined || data.imageUrl !== undefined, {
+  message: "At least one field (name, notes, or imageUrl) must be provided."
 }) satisfies z.ZodType<components["schemas"]["UpdateMealRequest"]>;
 
 export type CreateMealInput = z.infer<typeof createMealSchema>;
@@ -66,7 +71,7 @@ export async function listMeals(
 ): Promise<Meal[]> {
   const { data, error } = await supabase
     .from("meals")
-    .select("id, name, notes, created_at, created_by, updated_at, updated_by")
+    .select("id, name, notes, image_url, created_at, created_by, updated_at, updated_by")
     .eq("household_id", householdId)
     .order("name", { ascending: true });
   
@@ -94,10 +99,11 @@ export async function createMeal(
       household_id: householdId,
       name: input.name,
       notes: input.notes || null,
+      image_url: input.imageUrl || null,
       created_by: userId,
       created_at: now
     })
-    .select("id, name, notes, created_at, created_by, updated_at, updated_by")
+    .select("id, name, notes, image_url, created_at, created_by, updated_at, updated_by")
     .single();
   
   if (error) {
@@ -135,7 +141,7 @@ export async function fetchMeal(
 ): Promise<Meal | null> {
   const { data, error } = await supabase
     .from("meals")
-    .select("id, name, notes, created_at, created_by, updated_at, updated_by")
+    .select("id, name, notes, image_url, created_at, created_by, updated_at, updated_by")
     .eq("id", mealId)
     .eq("household_id", householdId)
     .maybeSingle();
@@ -175,13 +181,17 @@ export async function updateMeal(
   if (input.notes !== undefined) {
     updates.notes = input.notes || null;
   }
+
+  if (input.imageUrl !== undefined) {
+    updates.image_url = input.imageUrl || null;
+  }
   
   const { data, error } = await supabase
     .from("meals")
     .update(updates)
     .eq("id", mealId)
     .eq("household_id", householdId)
-    .select("id, name, notes, created_at, created_by, updated_at, updated_by")
+    .select("id, name, notes, image_url, created_at, created_by, updated_at, updated_by")
     .maybeSingle();
   
   if (error) {

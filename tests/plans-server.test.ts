@@ -61,6 +61,7 @@ describe("fetchPlanForWeek", () => {
       plan_id: "plan-1",
       date: `2024-02-${String(12 + index).padStart(2, "0")}`,
       meal_id: null,
+      leftover_from_plan_day_id: null,
       locked: false,
       created_at: "2024-02-10T09:00:00Z",
       created_by: "user-1",

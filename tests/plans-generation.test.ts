@@ -7,6 +7,7 @@ const baseDay = (overrides: Partial<Parameters<typeof buildPlanDayAssignments>[0
   planId: "plan-1",
   date: "2024-02-12",
   mealId: null,
+  leftoverFromPlanDayId: null,
   locked: false,
   createdAt: "2024-02-10T09:00:00Z",
   createdBy: "user-1",
@@ -52,6 +53,21 @@ describe("buildPlanDayAssignments", () => {
     const assignments = buildPlanDayAssignments(days, ["meal-a", "meal-b"]);
 
     expect(assignments).toEqual([]);
+  });
+
+  it("skips days using leftovers", () => {
+    const days = [
+      baseDay({
+        id: "day-1",
+        leftoverFromPlanDayId: "day-0",
+        mealId: "meal-leftover"
+      }),
+      baseDay({ id: "day-2", date: "2024-02-13" })
+    ];
+
+    const assignments = buildPlanDayAssignments(days, ["meal-a"]);
+
+    expect(assignments).toEqual([{ id: "day-2", mealId: "meal-a" }]);
   });
 
   it("throws when no meals exist", () => {

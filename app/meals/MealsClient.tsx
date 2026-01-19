@@ -1,5 +1,6 @@
 "use client";
 
+import Image from "next/image";
 import { useRouter } from "next/navigation";
 import {
   useCallback,
@@ -19,6 +20,7 @@ import TextArea from "@/app/ui/TextArea";
 import TextInput from "@/app/ui/TextInput";
 import formStyles from "@/app/ui/FormControls.module.css";
 import layoutStyles from "@/app/ui/Layout.module.css";
+import styles from "@/app/meals/Meals.module.css";
 import { createApiClient } from "@/lib/api/client";
 import { getApiErrorMessage } from "@/lib/api/errors";
 import type { components } from "@/lib/api/types";
@@ -42,10 +44,12 @@ enum MealsStatusMessage {
 type MealFormProps = {
   name: string;
   notes: string;
+  imageUrl: string;
   isEditing: boolean;
   saving: boolean;
   onNameChange: (value: string) => void;
   onNotesChange: (value: string) => void;
+  onImageUrlChange: (value: string) => void;
   onSubmit: (event: FormEvent<HTMLFormElement>) => void;
   onCancel: () => void;
 };
@@ -53,10 +57,12 @@ type MealFormProps = {
 const MealForm = memo(function MealForm({
   name,
   notes,
+  imageUrl,
   isEditing,
   saving,
   onNameChange,
   onNotesChange,
+  onImageUrlChange,
   onSubmit,
   onCancel
 }: MealFormProps) {
@@ -91,6 +97,21 @@ const MealForm = memo(function MealForm({
           autoComplete="off"
           maxLength={1000}
           placeholder="Any swaps or reminders…"
+        />
+      </div>
+
+      <div className={layoutStyles.stackSm}>
+        <label htmlFor="meal-image-url" className={formStyles.label}>
+          Image URL (optional)
+        </label>
+        <TextInput
+          id="meal-image-url"
+          name="mealImageUrl"
+          type="url"
+          value={imageUrl}
+          onChange={(event) => onImageUrlChange(event.target.value)}
+          autoComplete="off"
+          placeholder="https://example.com/meal.jpg…"
         />
       </div>
 
@@ -131,7 +152,7 @@ const MealList = memo(function MealList({
         <li key={meal.id}>
           <Card variant="compact" className={layoutStyles.stackSm}>
             <div className={`${layoutStyles.row} ${layoutStyles.rowBetween}`}>
-              <div className={layoutStyles.stackSm}>
+              <div className={`${layoutStyles.stackSm} ${styles.mealMeta}`}>
                 <div className={layoutStyles.row}>
                   <strong>{meal.name}</strong>
                   {editingId === meal.id ? (
@@ -142,6 +163,17 @@ const MealList = memo(function MealList({
                   {meal.notes && meal.notes.trim() ? meal.notes : "No notes yet."}
                 </p>
               </div>
+              {meal.imageUrl ? (
+                <Image
+                  src={meal.imageUrl}
+                  alt={`Meal: ${meal.name}`}
+                  className={styles.mealImage}
+                  width={72}
+                  height={72}
+                  sizes="(max-width: 720px) 64px, 72px"
+                  unoptimized
+                />
+              ) : null}
               <div className={layoutStyles.row}>
                 <Button
                   type="button"
@@ -180,6 +212,7 @@ export default function MealsClient() {
   const [status, setStatus] = useState<string | null>(null);
   const [formName, setFormName] = useState("");
   const [formNotes, setFormNotes] = useState("");
+  const [formImageUrl, setFormImageUrl] = useState("");
   const [editingId, setEditingId] = useState<string | null>(null);
 
   useEffect(() => {
@@ -244,6 +277,7 @@ export default function MealsClient() {
   const resetForm = useCallback(() => {
     setFormName("");
     setFormNotes("");
+    setFormImageUrl("");
     setEditingId(null);
   }, []);
 
@@ -252,6 +286,7 @@ export default function MealsClient() {
     setEditingId(meal.id);
     setFormName(meal.name ?? "");
     setFormNotes(meal.notes ?? "");
+    setFormImageUrl(meal.imageUrl ?? "");
   }, []);
 
   const handleCancel = useCallback(() => {
@@ -265,7 +300,7 @@ export default function MealsClient() {
 
       try {
         if (editingId) {
-          const updateResult = buildUpdateMealRequest(formName, formNotes);
+          const updateResult = buildUpdateMealRequest(formName, formNotes, formImageUrl);
           if (!updateResult.ok) {
             setStatus(updateResult.error);
             return;
@@ -296,7 +331,7 @@ export default function MealsClient() {
           return;
         }
 
-        const createResult = buildCreateMealRequest(formName, formNotes);
+        const createResult = buildCreateMealRequest(formName, formNotes, formImageUrl);
         if (!createResult.ok) {
           setStatus(createResult.error);
           return;
@@ -335,6 +370,7 @@ export default function MealsClient() {
       editingId,
       formName,
       formNotes,
+      formImageUrl,
       loadMeals,
       resetForm,
       router
@@ -402,10 +438,12 @@ export default function MealsClient() {
         <MealForm
           name={formName}
           notes={formNotes}
+          imageUrl={formImageUrl}
           isEditing={Boolean(editingId)}
           saving={saving}
           onNameChange={setFormName}
           onNotesChange={setFormNotes}
+          onImageUrlChange={setFormImageUrl}
           onSubmit={handleSubmit}
           onCancel={handleCancel}
         />
