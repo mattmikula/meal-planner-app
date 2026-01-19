@@ -15,7 +15,7 @@ type IngredientRow = {
 type MealIngredientRow = {
   meal_id: string;
   ingredient_id: string;
-  meals: { name: string } | null;
+  meals: { name: string } | { name: string }[] | null;
 };
 
 const INGREDIENT_NAME_REQUIRED_MESSAGE = "Ingredient name is required.";
@@ -145,7 +145,10 @@ export async function suggestMealFromIngredients(
   const meals = new Map<string, { id: string; name: string; ingredients: string[] }>();
 
   for (const row of (matchRows ?? []) as MealIngredientRow[]) {
-    if (!row.meals?.name) {
+    const mealName = Array.isArray(row.meals)
+      ? row.meals[0]?.name
+      : row.meals?.name;
+    if (!mealName) {
       continue;
     }
     const ingredient = ingredientMap.get(row.ingredient_id);
@@ -159,7 +162,7 @@ export async function suggestMealFromIngredients(
     } else {
       meals.set(row.meal_id, {
         id: row.meal_id,
-        name: row.meals.name,
+        name: mealName,
         ingredients: [ingredient.name]
       });
     }

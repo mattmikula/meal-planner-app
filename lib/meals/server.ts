@@ -38,7 +38,7 @@ type IngredientRow = {
 
 type MealIngredientRow = {
   meal_id: string;
-  ingredients: { name: string } | null;
+  ingredients: { name: string } | { name: string }[] | null;
 };
 
 export type MealIdParams = paths["/api/meals/{id}"]["patch"]["parameters"]["path"];
@@ -98,14 +98,17 @@ const fetchMealIngredientNames = async (
   }
 
   for (const row of (data ?? []) as MealIngredientRow[]) {
-    if (!row.ingredients?.name) {
+    const ingredientName = Array.isArray(row.ingredients)
+      ? row.ingredients[0]?.name
+      : row.ingredients?.name;
+    if (!ingredientName) {
       continue;
     }
     const existing = ingredientsByMeal.get(row.meal_id);
     if (existing) {
-      existing.push(row.ingredients.name);
+      existing.push(ingredientName);
     } else {
-      ingredientsByMeal.set(row.meal_id, [row.ingredients.name]);
+      ingredientsByMeal.set(row.meal_id, [ingredientName]);
     }
   }
 
