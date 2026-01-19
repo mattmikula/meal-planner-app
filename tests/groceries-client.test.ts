@@ -1,6 +1,39 @@
 import { describe, expect, it } from "vitest";
 
-import { buildUpdateGroceryItemRequest } from "@/lib/groceries/client";
+import {
+  buildCreateGroceryItemRequest,
+  buildUpdateGroceryItemRequest
+} from "@/lib/groceries/client";
+
+describe("buildCreateGroceryItemRequest", () => {
+  it("rejects empty names", () => {
+    expect(buildCreateGroceryItemRequest("   ", "")).toEqual({
+      ok: false,
+      error: "Item name is required."
+    });
+  });
+
+  it("rejects long names", () => {
+    expect(buildCreateGroceryItemRequest("a".repeat(201), "")).toEqual({
+      ok: false,
+      error: "Item name must be 200 characters or less."
+    });
+  });
+
+  it("rejects long quantities", () => {
+    expect(buildCreateGroceryItemRequest("Milk", "a".repeat(101))).toEqual({
+      ok: false,
+      error: "Quantity must be 100 characters or less."
+    });
+  });
+
+  it("trims name and omits empty quantity", () => {
+    expect(buildCreateGroceryItemRequest("  Milk  ", "   ")).toEqual({
+      ok: true,
+      value: { name: "Milk" }
+    });
+  });
+});
 
 describe("buildUpdateGroceryItemRequest", () => {
   it("allows checked-only updates without quantity", () => {
