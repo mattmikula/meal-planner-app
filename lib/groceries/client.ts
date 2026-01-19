@@ -45,11 +45,11 @@ export function buildCreateGroceryItemRequest(
 
 export function buildUpdateGroceryItemRequest(
   name: string,
-  quantity: string,
+  quantity: string | undefined,
   checked?: boolean
 ): RequestResult<UpdateGroceryItemRequest> {
   const trimmedName = trimValue(name);
-  const trimmedQuantity = trimValue(quantity);
+  const trimmedQuantity = quantity !== undefined ? trimValue(quantity) : "";
 
   if (!trimmedName && !trimmedQuantity && checked === undefined) {
     return { ok: false, error: UPDATE_REQUIRED_MESSAGE };
@@ -67,7 +67,9 @@ export function buildUpdateGroceryItemRequest(
   if (trimmedName) {
     payload.name = trimmedName;
   }
-  payload.quantity = trimmedQuantity ? trimmedQuantity : null;
+  if (quantity !== undefined) {
+    payload.quantity = trimmedQuantity ? trimmedQuantity : null;
+  }
 
   if (checked !== undefined) {
     payload.checked = checked;

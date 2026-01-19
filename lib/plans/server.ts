@@ -293,9 +293,9 @@ const derivePlanDayMutation = (
 };
 
 const shouldValidateMealSelection = (input: UpdatePlanDayInput) =>
-  input.leftoverFromPlanDayId === undefined &&
   input.mealId !== undefined &&
-  input.mealId !== null;
+  input.mealId !== null &&
+  (input.leftoverFromPlanDayId === undefined || input.leftoverFromPlanDayId === null);
 
 const validateMealSelection = async (
   supabase: SupabaseClient,

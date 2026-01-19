@@ -1457,7 +1457,7 @@ export interface components {
             /** Format: uri */
             imageUrl?: string;
         };
-        /** @description At least one field (name or notes) must be provided. */
+        /** @description At least one field (name, notes, or imageUrl) must be provided. */
         UpdateMealRequest: {
             name?: string;
             notes?: string;

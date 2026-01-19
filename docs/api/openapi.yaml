@@ -1334,7 +1334,7 @@ components:
 
     UpdateMealRequest:
       type: object
-      description: At least one field (name or notes) must be provided.
+      description: At least one field (name, notes, or imageUrl) must be provided.
       properties:
         name:
           type: string

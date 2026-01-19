@@ -146,6 +146,57 @@ describe("updatePlanDay", () => {
     ).rejects.toBeInstanceOf(PlanMutationError);
   });
 
+  it("throws when meal is missing and leftovers are cleared", async () => {
+    const planDayRow: PlanDayRow = {
+      id: "plan-day-1",
+      plan_id: "plan-1",
+      date: "2024-02-12",
+      meal_id: null,
+      leftover_from_plan_day_id: "plan-day-0",
+      locked: false,
+      created_at: "2024-02-10T09:00:00Z",
+      created_by: "user-1",
+      updated_at: null,
+      updated_by: null
+    };
+
+    let planDaysSelectQuery: PlanDaySelectQuery;
+    planDaysSelectQuery = {
+      select: vi.fn(() => planDaysSelectQuery),
+      eq: vi.fn(() => planDaysSelectQuery),
+      maybeSingle: vi.fn(async () => ({ data: planDayRow, error: null }))
+    };
+
+    let mealsSelectQuery: MealsSelectQuery;
+    mealsSelectQuery = {
+      select: vi.fn(() => mealsSelectQuery),
+      eq: vi.fn(() => mealsSelectQuery),
+      maybeSingle: vi.fn(async () => ({ data: null, error: null }))
+    };
+
+    const supabase = {
+      from: vi.fn((table: string) => {
+        if (table === "plan_days") {
+          return planDaysSelectQuery;
+        }
+        if (table === "meals") {
+          return mealsSelectQuery;
+        }
+        throw new Error(`Unexpected table ${table}`);
+      })
+    };
+
+    await expect(
+      updatePlanDay(
+        supabase as unknown as SupabaseClient,
+        "household-1",
+        "user-1",
+        "plan-day-1",
+        { mealId: "meal-missing", leftoverFromPlanDayId: null }
+      )
+    ).rejects.toBeInstanceOf(PlanMutationError);
+  });
+
   it("updates the plan day when fields change", async () => {
     const planDayRow: PlanDayRow = {
       id: "plan-day-1",
