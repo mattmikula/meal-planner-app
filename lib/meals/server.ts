@@ -130,14 +130,16 @@ const replaceMealIngredients = async (
   const now = new Date().toISOString();
 
   if (normalizedIngredients.length === 0) {
-    const { error } = await supabase
-      .from("meal_ingredients")
-      .delete()
-      .eq("meal_id", mealId)
-      .eq("household_id", householdId);
+    const { error: replaceError } = await supabase.rpc("replace_meal_ingredients", {
+      household_id: householdId,
+      meal_id: mealId,
+      ingredient_ids: [],
+      created_at: now,
+      created_by: userId
+    });
 
-    if (error) {
-      throw new Error(error.message);
+    if (replaceError) {
+      throw new Error(replaceError.message);
     }
 
     return [];
@@ -171,16 +173,39 @@ const replaceMealIngredients = async (
     }));
 
   if (missingRows.length > 0) {
-    const { data: insertedRows, error: insertError } = await supabase
+    const { data: upsertedRows, error: upsertError } = await supabase
       .from("ingredients")
-      .insert(missingRows)
+      .upsert(missingRows, {
+        onConflict: "household_id, normalized_name",
+        ignoreDuplicates: true
+      })
       .select("id, name, normalized_name");
 
-    if (insertError) {
-      throw new Error(insertError.message);
+    if (upsertError) {
+      throw new Error(upsertError.message);
     }
 
-    for (const row of (insertedRows ?? []) as IngredientRow[]) {
+    for (const row of (upsertedRows ?? []) as IngredientRow[]) {
+      ingredientByNormalized.set(row.normalized_name, row);
+    }
+  }
+
+  const unresolvedNames = normalizedIngredients
+    .map((entry) => entry.normalized)
+    .filter((normalized) => !ingredientByNormalized.has(normalized));
+
+  if (unresolvedNames.length > 0) {
+    const { data: concurrentRows, error: concurrentError } = await supabase
+      .from("ingredients")
+      .select("id, name, normalized_name")
+      .eq("household_id", householdId)
+      .in("normalized_name", unresolvedNames);
+
+    if (concurrentError) {
+      throw new Error(concurrentError.message);
+    }
+
+    for (const row of (concurrentRows ?? []) as IngredientRow[]) {
       ingredientByNormalized.set(row.normalized_name, row);
     }
   }
@@ -189,32 +214,18 @@ const replaceMealIngredients = async (
     .map((entry) => ingredientByNormalized.get(entry.normalized))
     .filter((entry): entry is IngredientRow => Boolean(entry));
 
-  const { error: deleteError } = await supabase
-    .from("meal_ingredients")
-    .delete()
-    .eq("meal_id", mealId)
-    .eq("household_id", householdId);
+  const ingredientIds = ingredientRows.map((row) => row.id);
 
-  if (deleteError) {
-    throw new Error(deleteError.message);
-  }
-
-  const joinRows = ingredientRows.map((row) => ({
+  const { error: replaceError } = await supabase.rpc("replace_meal_ingredients", {
     household_id: householdId,
     meal_id: mealId,
-    ingredient_id: row.id,
+    ingredient_ids: ingredientIds,
     created_at: now,
     created_by: userId
-  }));
+  });
 
-  if (joinRows.length > 0) {
-    const { error: joinError } = await supabase
-      .from("meal_ingredients")
-      .insert(joinRows);
-
-    if (joinError) {
-      throw new Error(joinError.message);
-    }
+  if (replaceError) {
+    throw new Error(replaceError.message);
   }
 
   return sortIngredientNames(ingredientRows.map((row) => row.name));

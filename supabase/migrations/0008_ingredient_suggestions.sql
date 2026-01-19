@@ -70,3 +70,38 @@ create policy "Household members can access meal ingredients"
         and household_members.status = 'active'
     )
   );
+
+create or replace function replace_meal_ingredients(
+  p_household_id uuid,
+  p_meal_id uuid,
+  p_ingredient_ids uuid[],
+  p_created_at timestamptz,
+  p_created_by uuid
+) returns void
+language plpgsql
+as $$
+begin
+  delete from meal_ingredients
+  where household_id = p_household_id
+    and meal_id = p_meal_id;
+
+  if p_ingredient_ids is not null and array_length(p_ingredient_ids, 1) > 0 then
+    insert into meal_ingredients (
+      household_id,
+      meal_id,
+      ingredient_id,
+      created_at,
+      created_by
+    )
+    select
+      p_household_id,
+      p_meal_id,
+      ingredient_id,
+      p_created_at,
+      p_created_by
+    from unnest(p_ingredient_ids) as ingredient_id;
+  end if;
+end;
+$$;
+
+grant execute on function replace_meal_ingredients(uuid, uuid, uuid[], timestamptz, uuid) to authenticated;

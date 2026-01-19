@@ -210,6 +210,36 @@ describe("POST /api/meals", () => {
       { name: "Tacos", notes: "Tuesday night" }
     );
   });
+
+  it("creates meal with ingredients", async () => {
+    authMocks.requireApiUser.mockResolvedValue({
+      userId: "user-1",
+      email: "test@example.com"
+    });
+    householdMocks.ensureHouseholdContext.mockResolvedValue(householdContext);
+    const supabase = {};
+    supabaseMocks.createServerSupabaseClient.mockReturnValue(supabase);
+    mealsMocks.createMealSchema.parse.mockReturnValue({
+      name: "Tacos",
+      ingredients: ["chicken"]
+    });
+    mealsMocks.createMeal.mockResolvedValue(sampleMeal);
+
+    const response = await createMealRoute(
+      new Request("https://localhost/api/meals", {
+        method: "POST",
+        body: JSON.stringify({ name: "Tacos", ingredients: ["chicken"] })
+      })
+    );
+
+    expect(response.status).toBe(200);
+    expect(mealsMocks.createMeal).toHaveBeenCalledWith(
+      supabase,
+      "household-1",
+      "user-1",
+      { name: "Tacos", ingredients: ["chicken"] }
+    );
+  });
 });
 
 describe("PATCH /api/meals/[id]", () => {
@@ -320,6 +350,36 @@ describe("PATCH /api/meals/[id]", () => {
       "user-1",
       mealId,
       { name: "Updated Spaghetti" }
+    );
+  });
+
+  it("updates meal with ingredients", async () => {
+    authMocks.requireApiUser.mockResolvedValue({
+      userId: "user-1",
+      email: "test@example.com"
+    });
+    householdMocks.ensureHouseholdContext.mockResolvedValue(householdContext);
+    const supabase = {};
+    supabaseMocks.createServerSupabaseClient.mockReturnValue(supabase);
+    const updatedMeal = { ...sampleMeal, ingredients: ["chicken"] };
+    mealsMocks.updateMealSchema.parse.mockReturnValue({ ingredients: ["chicken"] });
+    mealsMocks.updateMeal.mockResolvedValue(updatedMeal);
+
+    const response = await updateMealRoute(
+      new Request(`https://localhost/api/meals/${mealId}`, {
+        method: "PATCH",
+        body: JSON.stringify({ ingredients: ["chicken"] })
+      }),
+      { params: { id: mealId } }
+    );
+
+    expect(response.status).toBe(200);
+    expect(mealsMocks.updateMeal).toHaveBeenCalledWith(
+      supabase,
+      "household-1",
+      "user-1",
+      mealId,
+      { ingredients: ["chicken"] }
     );
   });
 });
