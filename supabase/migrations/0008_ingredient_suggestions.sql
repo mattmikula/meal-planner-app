@@ -80,12 +80,32 @@ create or replace function replace_meal_ingredients(
 ) returns void
 language plpgsql
 as $$
+declare
+  input_count int;
+  match_count int;
 begin
+  select count(distinct ingredient_id)
+  into input_count
+  from unnest(p_ingredient_ids) as ingredient_id;
+
+  if input_count > 0 then
+    select count(distinct ingredients.id)
+    into match_count
+    from unnest(p_ingredient_ids) as ingredient_id
+    join ingredients
+      on ingredients.id = ingredient_id
+     and ingredients.household_id = p_household_id;
+
+    if match_count <> input_count then
+      raise exception 'One or more ingredient IDs do not belong to household %', p_household_id;
+    end if;
+  end if;
+
   delete from meal_ingredients
   where household_id = p_household_id
     and meal_id = p_meal_id;
 
-  if p_ingredient_ids is not null and array_length(p_ingredient_ids, 1) > 0 then
+  if input_count > 0 then
     insert into meal_ingredients (
       household_id,
       meal_id,

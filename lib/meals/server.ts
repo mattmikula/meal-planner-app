@@ -94,7 +94,7 @@ const fetchMealIngredientNames = async (
     if (Array.isArray(row.ingredients)) {
       if (row.ingredients.length > 1) {
         throw new Error(
-          `Expected a single ingredient for meal ${row.meal_id}, but got ${row.ingredients.length}.`
+          `Unexpected ingredient join shape for meal ${row.meal_id}: expected a single ingredient object, got ${row.ingredients.length}.`
         );
       }
       ingredientName = row.ingredients[0]?.name;
