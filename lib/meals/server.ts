@@ -131,11 +131,11 @@ const replaceMealIngredients = async (
 
   if (normalizedIngredients.length === 0) {
     const { error: replaceError } = await supabase.rpc("replace_meal_ingredients", {
-      household_id: householdId,
-      meal_id: mealId,
-      ingredient_ids: [],
-      created_at: now,
-      created_by: userId
+      p_household_id: householdId,
+      p_meal_id: mealId,
+      p_ingredient_ids: [],
+      p_created_at: now,
+      p_created_by: userId
     });
 
     if (replaceError) {
@@ -217,11 +217,11 @@ const replaceMealIngredients = async (
   const ingredientIds = ingredientRows.map((row) => row.id);
 
   const { error: replaceError } = await supabase.rpc("replace_meal_ingredients", {
-    household_id: householdId,
-    meal_id: mealId,
-    ingredient_ids: ingredientIds,
-    created_at: now,
-    created_by: userId
+    p_household_id: householdId,
+    p_meal_id: mealId,
+    p_ingredient_ids: ingredientIds,
+    p_created_at: now,
+    p_created_by: userId
   });
 
   if (replaceError) {
