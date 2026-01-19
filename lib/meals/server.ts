@@ -90,9 +90,17 @@ const fetchMealIngredientNames = async (
   }
 
   for (const row of (data ?? []) as MealIngredientRow[]) {
-    const ingredientName = Array.isArray(row.ingredients)
-      ? row.ingredients[0]?.name
-      : row.ingredients?.name;
+    let ingredientName: string | undefined;
+    if (Array.isArray(row.ingredients)) {
+      if (row.ingredients.length > 1) {
+        throw new Error(
+          `Expected a single ingredient for meal ${row.meal_id}, but got ${row.ingredients.length}.`
+        );
+      }
+      ingredientName = row.ingredients[0]?.name;
+    } else {
+      ingredientName = row.ingredients?.name;
+    }
     if (!ingredientName) {
       continue;
     }
