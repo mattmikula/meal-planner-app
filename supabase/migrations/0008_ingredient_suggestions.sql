@@ -93,13 +93,16 @@ begin
       created_at,
       created_by
     )
-    select
+    select distinct
       p_household_id,
       p_meal_id,
-      ingredient_id,
+      ingredients.id,
       p_created_at,
       p_created_by
-    from unnest(p_ingredient_ids) as ingredient_id;
+    from unnest(p_ingredient_ids) as ingredient_id
+    join ingredients
+      on ingredients.id = ingredient_id
+     and ingredients.household_id = p_household_id;
   end if;
 end;
 $$;

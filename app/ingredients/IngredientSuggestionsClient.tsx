@@ -82,6 +82,8 @@ export default function IngredientSuggestionsClient() {
 
       const request = buildIngredientSuggestionRequest(ingredientsInput);
       if (!request.ok) {
+        setSuggestion(null);
+        setAddedIngredients([]);
         setStatus(request.error);
         return;
       }
