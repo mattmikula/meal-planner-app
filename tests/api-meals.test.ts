@@ -73,6 +73,7 @@ const sampleMeal = {
   name: "Spaghetti",
   notes: "Family favorite",
   imageUrl: null,
+  ingredients: [],
   createdAt: "2024-02-12T10:00:00Z",
   createdBy: "user-1",
   updatedAt: null,

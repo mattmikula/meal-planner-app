@@ -790,6 +790,85 @@ export interface paths {
         };
         trace?: never;
     };
+    "/api/ingredients/suggest": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Suggest meal from ingredients
+         * @description Returns a matching meal based on provided ingredients.
+         */
+        post: {
+            parameters: {
+                query?: never;
+                header?: never;
+                path?: never;
+                cookie?: never;
+            };
+            requestBody: {
+                content: {
+                    "application/json": components["schemas"]["IngredientSuggestionRequest"];
+                };
+            };
+            responses: {
+                /** @description Suggested meal. */
+                200: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["IngredientSuggestion"];
+                    };
+                };
+                /** @description Invalid request body. */
+                400: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["Error"];
+                    };
+                };
+                /** @description Missing or invalid credentials. */
+                401: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["Error"];
+                    };
+                };
+                /** @description No matching meals found. */
+                404: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["Error"];
+                    };
+                };
+                /** @description Suggestion lookup failed. */
+                500: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["Error"];
+                    };
+                };
+            };
+        };
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/api/groceries": {
         parameters: {
             query?: never;
@@ -1363,6 +1442,7 @@ export interface components {
             updatedAt?: string | null;
             /** Format: uuid */
             updatedBy?: string | null;
+            ingredients: components["schemas"]["IngredientName"][];
         };
         MealsResponse: {
             meals: components["schemas"]["Meal"][];
@@ -1456,13 +1536,25 @@ export interface components {
             notes?: string;
             /** Format: uri */
             imageUrl?: string;
+            ingredients?: components["schemas"]["IngredientName"][];
         };
-        /** @description At least one field (name, notes, or imageUrl) must be provided. */
+        /** @description At least one field (name, notes, imageUrl, or ingredients) must be provided. */
         UpdateMealRequest: {
             name?: string;
             notes?: string;
             /** Format: uri */
             imageUrl?: string | null;
+            ingredients?: components["schemas"]["IngredientName"][];
+        };
+        IngredientName: string;
+        IngredientSuggestionRequest: {
+            ingredients: components["schemas"]["IngredientName"][];
+        };
+        IngredientSuggestion: {
+            /** Format: uuid */
+            mealId: string;
+            name: string;
+            matchedIngredients: components["schemas"]["IngredientName"][];
         };
         DeleteMealResponse: {
             /** @constant */
