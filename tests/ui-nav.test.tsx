@@ -9,8 +9,15 @@ import styles from "@/app/ui/AppNav.module.css";
 
 const mockUsePathname = vi.fn(() => null as string | null);
 
+const mockRouter = {
+  push: vi.fn(),
+  replace: vi.fn(),
+  refresh: vi.fn()
+};
+
 vi.mock("next/navigation", () => ({
-  usePathname: () => mockUsePathname()
+  usePathname: () => mockUsePathname(),
+  useRouter: () => mockRouter
 }));
 
 vi.mock("next/link", () => ({
