@@ -39,6 +39,15 @@
   padding: 0;
 }
 
+.navList {
+  width: 100%;
+}
+
+.navList .link {
+  width: 100%;
+  justify-content: flex-start;
+}
+
 .link {
   display: inline-flex;
   align-items: center;
