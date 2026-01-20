@@ -16,8 +16,7 @@ import { createBrowserSupabaseClient } from "@/lib/supabase/browser";
 enum HomeStatusMessage {
   SessionLoadFailed = "Unable to load your session. Try again.",
   OtpSent = "Enter the code we emailed you.",
-  VerifyFailed = "Unable to verify the code. Try again.",
-  SignOutFailed = "Unable to sign out. Try again."
+  VerifyFailed = "Unable to verify the code. Try again."
 }
 
 export default function HomePage() {
@@ -116,17 +115,6 @@ export default function HomePage() {
     }
   };
 
-  const handleLogout = async () => {
-    setStatus(null);
-    const { error, response } = await api.POST("/api/logout");
-    if (response?.ok) {
-      setUserEmail(null);
-      setOtpSent(false);
-      return;
-    }
-    setStatus(getApiErrorMessage(error) ?? HomeStatusMessage.SignOutFailed);
-  };
-
   const nav = !checkingSession && userEmail ? <AppNav /> : undefined;
 
   if (checkingSession) {
@@ -151,9 +139,6 @@ export default function HomePage() {
               <p className={layoutStyles.textMuted}>
                 Use the navigation to manage meals and invites.
               </p>
-              <Button type="button" variant="secondary" onClick={handleLogout}>
-                Sign Out
-              </Button>
             </div>
           ) : (
             <form onSubmit={handleLogin} className={layoutStyles.stack}>

@@ -1,8 +1,18 @@
 .nav {
   display: flex;
+  flex-direction: column;
+  align-items: stretch;
+  gap: var(--space-3);
+}
+
+.bar {
+  display: flex;
   align-items: center;
   justify-content: space-between;
   gap: var(--space-4);
+  position: relative;
+  z-index: 31;
+  pointer-events: auto;
 }
 
 .brand {
@@ -22,12 +32,11 @@
 .list {
   list-style: none;
   display: flex;
-  align-items: center;
-  gap: var(--space-3);
+  flex-direction: column;
+  align-items: stretch;
+  gap: var(--space-2);
   margin: 0;
   padding: 0;
-  flex-wrap: wrap;
-  justify-content: flex-end;
 }
 
 .link {
@@ -61,11 +70,175 @@
   outline-offset: 3px;
 }
 
+.menuButton {
+  cursor: pointer;
+  padding: 0.5rem;
+  background: transparent;
+  border: none;
+  border-radius: 8px;
+  touch-action: manipulation;
+  -webkit-tap-highlight-color: transparent;
+}
+
+.menuButton svg {
+  display: block;
+}
+
+.menuButton:hover {
+  background: var(--color-surface-glass);
+}
+
+.menuButton:focus-visible {
+  outline: 3px solid var(--color-focus-alpha-35);
+  outline-offset: 3px;
+}
+
+.scrim {
+  position: fixed;
+  inset: 0;
+  background: rgba(43, 38, 32, 0.35);
+  border: none;
+  padding: 0;
+  margin: 0;
+  z-index: 30;
+  cursor: pointer;
+  pointer-events: auto;
+}
+
+.drawer {
+  position: fixed;
+  top: 0;
+  left: 0;
+  height: 100vh;
+  height: 100dvh;
+  width: min(80vw, 320px);
+  padding: calc(var(--space-5) + env(safe-area-inset-top)) var(--space-4)
+    var(--space-4);
+  background: var(--color-surface-strong);
+  border-right: 1px solid var(--color-border);
+  box-shadow: var(--shadow-2);
+  transform: translateX(-100%);
+  transition: transform 0.2s ease;
+  will-change: transform;
+  z-index: 33;
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-3);
+  pointer-events: none;
+  overscroll-behavior: contain;
+}
+
+.drawer[data-open="true"] {
+  transform: translateX(0);
+  pointer-events: auto;
+}
+
+.drawer[data-open="true"] * {
+  pointer-events: auto;
+}
+
+.drawer .link {
+  width: 100%;
+  justify-content: flex-start;
+}
+
+.account {
+  position: relative;
+}
+
+.accountButton {
+  cursor: pointer;
+}
+
+.accountMenu {
+  position: absolute;
+  top: calc(100% + var(--space-2));
+  right: 0;
+  min-width: 180px;
+  padding: var(--space-2);
+  border-radius: var(--radius-md);
+  background: var(--color-surface-strong);
+  border: 1px solid var(--color-border);
+  box-shadow: var(--shadow-2);
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-2);
+  z-index: 20;
+}
+
+.accountMenu[hidden] {
+  display: none;
+}
+
+.accountItem {
+  display: inline-flex;
+  align-items: center;
+  justify-content: flex-start;
+  width: 100%;
+  padding: 0.5rem 0.75rem;
+  border-radius: 10px;
+  font-weight: 600;
+  color: var(--color-ink);
+  background: transparent;
+  border: 1px solid transparent;
+  cursor: pointer;
+  touch-action: manipulation;
+  -webkit-tap-highlight-color: transparent;
+}
+
+.accountItem:hover {
+  border-color: var(--color-border);
+  background: var(--color-surface-glass);
+}
+
+.accountItem:focus-visible {
+  outline: 3px solid var(--color-focus-alpha-35);
+  outline-offset: 3px;
+}
+
+.accountStatus {
+  margin: 0;
+  color: var(--color-muted);
+  font-size: 0.95rem;
+  padding: 0 var(--space-2);
+}
+
+@media (max-width: 899px) {
+  .account {
+    width: 100%;
+  }
+
+  .accountMenu {
+    position: static;
+    box-shadow: none;
+  }
+}
+
 @media (min-width: 900px) {
   .nav {
     align-items: flex-start;
     flex-direction: column;
     gap: var(--space-5);
+  }
+
+  .bar {
+    width: 100%;
+  }
+
+  .scrim {
+    display: none;
+  }
+
+  .drawer {
+    position: static;
+    height: auto;
+    width: 100%;
+    padding: 0;
+    background: none;
+    border-right: none;
+    box-shadow: none;
+    transform: none;
+    pointer-events: auto;
   }
 
   .list {
@@ -77,5 +250,9 @@
   .link {
     justify-content: flex-start;
     width: 100%;
+  }
+
+  .menuButton {
+    display: none;
   }
 }
