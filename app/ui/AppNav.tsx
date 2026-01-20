@@ -156,31 +156,102 @@ function AccountMenu() {
 
 export default function AppNav() {
   const pathname = usePathname();
+  const [isMenuOpen, setIsMenuOpen] = useState(false);
+  const [isDesktop, setIsDesktop] = useState(() => {
+    const hasMatchMedia =
+      typeof window !== "undefined" && typeof window.matchMedia === "function";
+    if (!hasMatchMedia) {
+      return true;
+    }
+    return window.matchMedia("(min-width: 900px)").matches;
+  });
+  const menuId = useId();
+  const menuOpen = isDesktop || isMenuOpen;
+
+  useEffect(() => {
+    const hasMatchMedia =
+      typeof window !== "undefined" && typeof window.matchMedia === "function";
+    if (!hasMatchMedia) {
+      setIsDesktop(true);
+      return;
+    }
+
+    const media = window.matchMedia("(min-width: 900px)");
+    const updateMatch = () => setIsDesktop(media.matches);
+    updateMatch();
+    media.addEventListener("change", updateMatch);
+
+    return () => {
+      media.removeEventListener("change", updateMatch);
+    };
+  }, []);
+
+  useEffect(() => {
+    setIsMenuOpen(false);
+  }, [pathname]);
+
+  useEffect(() => {
+    if (!isMenuOpen) {
+      return;
+    }
+
+    const handleKeyDown = (event: KeyboardEvent) => {
+      if (event.key === "Escape") {
+        setIsMenuOpen(false);
+      }
+    };
+
+    document.addEventListener("keydown", handleKeyDown);
+    return () => {
+      document.removeEventListener("keydown", handleKeyDown);
+    };
+  }, [isMenuOpen]);
 
   return (
-    <nav className={styles.nav} aria-label="Primary">
-      <Link href="/" className={styles.brand}>
-        Meal Planner
-      </Link>
-      <ul className={styles.list}>
-        {NAV_ITEMS.map((item) => {
-          const isActive = pathname ? isActivePath(pathname, item.href) : false;
-          return (
-            <li key={item.href}>
-              <Link
-                href={item.href}
-                className={`${styles.link}${isActive ? ` ${styles.linkActive}` : ""}`}
-                aria-current={isActive ? "page" : undefined}
-              >
-                {item.label}
-              </Link>
-            </li>
-          );
-        })}
-        <li>
-          <AccountMenu />
-        </li>
-      </ul>
+    <nav className={styles.nav} aria-label="Primary" data-menu-open={menuOpen}>
+      <div className={styles.bar}>
+        <Link href="/" className={styles.brand}>
+          Meal Planner
+        </Link>
+        <button
+          type="button"
+          className={`${styles.link} ${styles.menuButton}`}
+          aria-expanded={menuOpen}
+          aria-controls={menuId}
+          onClick={() => setIsMenuOpen((open) => !open)}
+        >
+          Menu
+        </button>
+      </div>
+      {!isDesktop && menuOpen ? (
+        <button
+          type="button"
+          className={styles.scrim}
+          aria-label="Close menu"
+          onClick={() => setIsMenuOpen(false)}
+        />
+      ) : null}
+      <div className={styles.drawer} aria-hidden={!menuOpen}>
+        <ul className={styles.list} id={menuId}>
+          {NAV_ITEMS.map((item) => {
+            const isActive = pathname ? isActivePath(pathname, item.href) : false;
+            return (
+              <li key={item.href}>
+                <Link
+                  href={item.href}
+                  className={`${styles.link}${isActive ? ` ${styles.linkActive}` : ""}`}
+                  aria-current={isActive ? "page" : undefined}
+                >
+                  {item.label}
+                </Link>
+              </li>
+            );
+          })}
+          <li>
+            <AccountMenu />
+          </li>
+        </ul>
+      </div>
     </nav>
   );
 }
