@@ -116,6 +116,17 @@ export class HouseholdAuthorizationError extends Error {
 }
 
 /**
+ * Thrown when household input fails business rules validation.
+ * Should result in 400 Bad Request responses.
+ */
+export class HouseholdValidationError extends Error {
+  constructor(message: string) {
+    super(message);
+    this.name = "HouseholdValidationError";
+  }
+}
+
+/**
  * Builds an invite URL with the token as a query parameter.
  *
  * WARNING: Invite tokens in URLs can be logged by proxies, browsers, and analytics tools.
@@ -684,19 +695,19 @@ export async function updateHouseholdName(
   // Verify user is an owner of the household
   const membership = await fetchHouseholdMembership(supabase, userId, householdId);
   if (!membership) {
-    throw new Error("You are not a member of this household");
+    throw new HouseholdAuthorizationError("You are not a member of this household");
   }
   if (membership.role !== "owner") {
-    throw new Error("Only household owners can update the name");
+    throw new HouseholdAuthorizationError("Only household owners can update the name");
   }
 
   // Validate name
   const trimmedName = name.trim();
   if (!trimmedName) {
-    throw new Error("Household name cannot be empty");
+    throw new HouseholdValidationError("Household name cannot be empty");
   }
   if (trimmedName.length > 100) {
-    throw new Error("Household name must be 100 characters or less");
+    throw new HouseholdValidationError("Household name must be 100 characters or less");
   }
 
   // Update household name

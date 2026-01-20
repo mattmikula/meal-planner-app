@@ -3,7 +3,12 @@ import { z } from "zod";
 
 import { applyAuthCookies, jsonError, logApiError } from "@/lib/api/helpers";
 import { requireApiUser } from "@/lib/auth/server";
-import { ensureHouseholdContext, updateHouseholdName } from "@/lib/household/server";
+import {
+  ensureHouseholdContext,
+  HouseholdAuthorizationError,
+  HouseholdValidationError,
+  updateHouseholdName
+} from "@/lib/household/server";
 import { createServerSupabaseClient } from "@/lib/supabase/server";
 
 const buildHouseholdPayload = (context: {
@@ -74,10 +79,11 @@ export async function PATCH(request: Request) {
     applyAuthCookies(response, authResult.session, request);
     return response;
   } catch (error) {
+    if (error instanceof HouseholdAuthorizationError || error instanceof HouseholdValidationError) {
+      return jsonError(error.message, 400);
+    }
+
     logApiError("household PATCH", error, { userId: authResult.userId });
-    return jsonError(
-      error instanceof Error ? error.message : "Unable to update household.",
-      400
-    );
+    return jsonError("Unable to update household.", 500);
   }
 }
