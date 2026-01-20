@@ -36,11 +36,35 @@ const isActivePath = (pathname: string, href: string) => {
 function AccountMenu() {
   const api = useMemo(() => createApiClient(), []);
   const router = useRouter();
+  const [isAuthenticated, setIsAuthenticated] = useState<boolean | null>(null);
   const [isOpen, setIsOpen] = useState(false);
   const [status, setStatus] = useState<string | null>(null);
   const menuId = useId();
   const buttonRef = useRef<HTMLButtonElement>(null);
   const menuRef = useRef<HTMLDivElement>(null);
+
+  useEffect(() => {
+    let isMounted = true;
+
+    const checkAuth = async () => {
+      try {
+        const { response } = await api.GET("/api/me");
+        if (isMounted) {
+          setIsAuthenticated(Boolean(response?.ok));
+        }
+      } catch {
+        if (isMounted) {
+          setIsAuthenticated(false);
+        }
+      }
+    };
+
+    checkAuth();
+
+    return () => {
+      isMounted = false;
+    };
+  }, [api]);
 
   useEffect(() => {
     if (!isOpen) {
@@ -86,6 +110,10 @@ function AccountMenu() {
     }
     setStatus(getApiErrorMessage(error) ?? AccountStatusMessage.SignOutFailed);
   };
+
+  if (!isAuthenticated) {
+    return null;
+  }
 
   return (
     <div className={styles.account}>
