@@ -1,5 +1,6 @@
 import "server-only";
 import type { Session } from "@supabase/supabase-js";
+import { cookies } from "next/headers";
 import { NextResponse } from "next/server";
 import { z } from "zod";
 
@@ -109,6 +110,35 @@ async function getUserFromToken(token: string): Promise<ApiAuthSuccess | null> {
   }
 
   return toAuthSuccess(data.user);
+}
+
+export async function requireUser(): Promise<ApiAuthSuccess | null> {
+  const cookieStore = cookies();
+  const accessToken = cookieStore.get(ACCESS_TOKEN_COOKIE)?.value ?? null;
+  const refreshToken = cookieStore.get(REFRESH_TOKEN_COOKIE)?.value ?? null;
+
+  if (!accessToken && !refreshToken) {
+    return null;
+  }
+
+  if (!accessToken && refreshToken) {
+    return await refreshWithToken(refreshToken);
+  }
+
+  if (!accessToken) {
+    return null;
+  }
+
+  const user = await getUserFromToken(accessToken);
+  if (user) {
+    return user;
+  }
+
+  if (!refreshToken) {
+    return null;
+  }
+
+  return await refreshWithToken(refreshToken);
 }
 
 export async function requireApiUser(request: Request): Promise<ApiAuthSuccess | ApiAuthFailure> {
