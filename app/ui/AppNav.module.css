@@ -61,6 +61,67 @@
   outline-offset: 3px;
 }
 
+.account {
+  position: relative;
+}
+
+.accountButton {
+  cursor: pointer;
+}
+
+.accountMenu {
+  position: absolute;
+  top: calc(100% + var(--space-2));
+  right: 0;
+  min-width: 180px;
+  padding: var(--space-2);
+  border-radius: var(--radius-md);
+  background: var(--color-surface-strong);
+  border: 1px solid var(--color-border);
+  box-shadow: var(--shadow-2);
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-2);
+  z-index: 20;
+}
+
+.accountMenu[hidden] {
+  display: none;
+}
+
+.accountItem {
+  display: inline-flex;
+  align-items: center;
+  justify-content: flex-start;
+  width: 100%;
+  padding: 0.5rem 0.75rem;
+  border-radius: 10px;
+  font-weight: 600;
+  color: var(--color-ink);
+  background: transparent;
+  border: 1px solid transparent;
+  cursor: pointer;
+  touch-action: manipulation;
+  -webkit-tap-highlight-color: transparent;
+}
+
+.accountItem:hover {
+  border-color: var(--color-border);
+  background: var(--color-surface-glass);
+}
+
+.accountItem:focus-visible {
+  outline: 3px solid var(--color-focus-alpha-35);
+  outline-offset: 3px;
+}
+
+.accountStatus {
+  margin: 0;
+  color: var(--color-muted);
+  font-size: 0.95rem;
+  padding: 0 var(--space-2);
+}
+
 @media (min-width: 900px) {
   .nav {
     align-items: flex-start;
