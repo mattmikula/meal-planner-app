@@ -1,6 +1,7 @@
 "use client";
 
 import { useEffect, useId, useMemo, useRef, useState } from "react";
+import { createPortal } from "react-dom";
 import Link from "next/link";
 import { usePathname, useRouter } from "next/navigation";
 
@@ -157,6 +158,7 @@ function AccountMenu() {
 export default function AppNav() {
   const pathname = usePathname();
   const [isMenuOpen, setIsMenuOpen] = useState(false);
+  const [isMounted, setIsMounted] = useState(false);
   const [isDesktop, setIsDesktop] = useState(() => {
     const hasMatchMedia =
       typeof window !== "undefined" && typeof window.matchMedia === "function";
@@ -167,6 +169,10 @@ export default function AppNav() {
   });
   const menuId = useId();
   const menuOpen = isDesktop || isMenuOpen;
+
+  useEffect(() => {
+    setIsMounted(true);
+  }, []);
 
   useEffect(() => {
     const hasMatchMedia =
@@ -208,50 +214,66 @@ export default function AppNav() {
   }, [isMenuOpen]);
 
   return (
-    <nav className={styles.nav} aria-label="Primary" data-menu-open={menuOpen}>
-      <div className={styles.bar}>
-        <Link href="/" className={styles.brand}>
-          Meal Planner
-        </Link>
-        <button
-          type="button"
-          className={`${styles.link} ${styles.menuButton}`}
-          aria-expanded={menuOpen}
-          aria-controls={menuId}
-          onClick={() => setIsMenuOpen((open) => !open)}
-        >
-          Menu
-        </button>
-      </div>
-      {!isDesktop && menuOpen ? (
-        <button
-          type="button"
-          className={styles.scrim}
-          aria-label="Close menu"
-          onClick={() => setIsMenuOpen(false)}
-        />
-      ) : null}
-      <div className={styles.drawer} aria-hidden={!menuOpen}>
-        <ul className={styles.list} id={menuId}>
-          {NAV_ITEMS.map((item) => {
-            const isActive = pathname ? isActivePath(pathname, item.href) : false;
-            return (
-              <li key={item.href}>
-                <Link
-                  href={item.href}
-                  className={`${styles.link}${isActive ? ` ${styles.linkActive}` : ""}`}
-                  aria-current={isActive ? "page" : undefined}
-                >
-                  {item.label}
-                </Link>
-              </li>
-            );
-          })}
-          <li>
-            <AccountMenu />
-          </li>
-        </ul>
-      </div>
-    </nav>
+    <>
+      <nav className={styles.nav} aria-label="Primary" data-menu-open={menuOpen}>
+        <div className={styles.bar}>
+          <button
+            type="button"
+            className={styles.menuButton}
+            aria-expanded={menuOpen}
+            aria-controls={menuId}
+            aria-label="Menu"
+            onClick={() => setIsMenuOpen((open) => !open)}
+          >
+            <svg viewBox="0 0 24 24" width="24" height="24" aria-hidden="true">
+              <path
+                d="M3 18h18v-2H3v2zm0-5h18v-2H3v2zm0-7v2h18V6H3z"
+                fill="currentColor"
+              />
+            </svg>
+          </button>
+          <Link href="/" className={styles.brand}>
+            Meal Planner
+          </Link>
+        </div>
+      </nav>
+      {isMounted && !isDesktop && menuOpen
+        ? createPortal(
+            <button
+              type="button"
+              className={styles.scrim}
+              aria-label="Close menu"
+              onClick={() => setIsMenuOpen(false)}
+            />,
+            document.body
+          )
+        : null}
+      {isMounted
+        ? createPortal(
+            <div className={styles.drawer} aria-hidden={!menuOpen} data-open={menuOpen}>
+              <ul className={styles.list} id={menuId}>
+                {NAV_ITEMS.map((item) => {
+                  const isActive = pathname ? isActivePath(pathname, item.href) : false;
+                  return (
+                    <li key={item.href}>
+                      <Link
+                        href={item.href}
+                        className={`${styles.link}${isActive ? ` ${styles.linkActive}` : ""}`}
+                        aria-current={isActive ? "page" : undefined}
+                      >
+                        {item.label}
+                      </Link>
+                    </li>
+                  );
+                })}
+                <li>
+                  <AccountMenu />
+                </li>
+              </ul>
+            </div>,
+            document.body
+          )
+        : null}
+    </>
   );
 }
