@@ -8,6 +8,7 @@ import { usePathname, useRouter } from "next/navigation";
 import styles from "./AppNav.module.css";
 import { createApiClient } from "@/lib/api/client";
 import { getApiErrorMessage } from "@/lib/api/errors";
+import { useHousehold, useHouseholdList, switchHousehold } from "@/lib/household/client";
 
 type NavItem = {
   href: string;
@@ -20,7 +21,8 @@ const NAV_ITEMS: NavItem[] = [
   { href: "/meals", label: "Meals" },
   { href: "/ingredients", label: "Ingredients" },
   { href: "/groceries", label: "Groceries" },
-  { href: "/household/invite", label: "Invite member" }
+  { href: "/household/invite", label: "Invite member" },
+  { href: "/household/settings", label: "Household settings" }
 ];
 
 enum AccountStatusMessage {
@@ -33,6 +35,124 @@ const isActivePath = (pathname: string, href: string) => {
   }
   return pathname.startsWith(href);
 };
+
+function HouseholdSwitcher() {
+  const { household } = useHousehold();
+  const { households } = useHouseholdList();
+  const [isOpen, setIsOpen] = useState(false);
+  const [switching, setSwitching] = useState(false);
+  const menuId = useId();
+  const buttonRef = useRef<HTMLButtonElement>(null);
+  const menuRef = useRef<HTMLDivElement>(null);
+
+  useEffect(() => {
+    if (!isOpen) {
+      return;
+    }
+
+    const handlePointerDown = (event: MouseEvent) => {
+      const target = event.target;
+      if (!(target instanceof Node)) {
+        return;
+      }
+      if (menuRef.current?.contains(target) || buttonRef.current?.contains(target)) {
+        return;
+      }
+      setIsOpen(false);
+    };
+
+    const handleKeyDown = (event: KeyboardEvent) => {
+      if (event.key !== "Escape") {
+        return;
+      }
+      setIsOpen(false);
+      buttonRef.current?.focus();
+    };
+
+    document.addEventListener("mousedown", handlePointerDown);
+    document.addEventListener("keydown", handleKeyDown);
+
+    return () => {
+      document.removeEventListener("mousedown", handlePointerDown);
+      document.removeEventListener("keydown", handleKeyDown);
+    };
+  }, [isOpen]);
+
+  const handleSwitch = async (householdId: string) => {
+    if (switching || household?.id === householdId) {
+      return;
+    }
+
+    setSwitching(true);
+    try {
+      await switchHousehold(householdId);
+      setIsOpen(false);
+      // Reload the page to refresh all data
+      window.location.reload();
+    } catch (error) {
+      setSwitching(false);
+      console.error("Failed to switch household:", error);
+    }
+  };
+
+  if (!household) {
+    return null;
+  }
+
+  const displayName = household.name || "My Household";
+  const showSwitcher = households.length > 1;
+
+  if (!showSwitcher) {
+    return (
+      <div className={styles.householdDisplay}>
+        <span className={styles.householdIcon}>🏠</span>
+        <span className={styles.householdName}>{displayName}</span>
+      </div>
+    );
+  }
+
+  return (
+    <div className={styles.household}>
+      <button
+        type="button"
+        className={`${styles.link} ${styles.householdButton}`}
+        aria-haspopup="menu"
+        aria-expanded={isOpen}
+        aria-controls={menuId}
+        onClick={() => setIsOpen((prev) => !prev)}
+        ref={buttonRef}
+        disabled={switching}
+      >
+        <span className={styles.householdIcon}>🏠</span>
+        <span className={styles.householdName}>{displayName}</span>
+        <span className={styles.householdArrow}>▾</span>
+      </button>
+      <div
+        id={menuId}
+        className={styles.householdMenu}
+        role="menu"
+        aria-label="Switch household"
+        hidden={!isOpen}
+        ref={menuRef}
+      >
+        {households.map((h) => (
+          <button
+            key={h.householdId}
+            type="button"
+            className={styles.householdItem}
+            role="menuitem"
+            onClick={() => handleSwitch(h.householdId)}
+            disabled={switching}
+            aria-current={h.isCurrent ? "true" : undefined}
+          >
+            {h.isCurrent && <span className={styles.checkmark}>✓</span>}
+            <span>{h.householdName || "Unnamed Household"}</span>
+          </button>
+        ))}
+      </div>
+    </div>
+  );
+}
 
 function AccountMenu() {
   const api = useMemo(() => createApiClient(), []);
@@ -258,6 +378,9 @@ export default function AppNav() {
         ? createPortal(
             <div className={styles.drawer} aria-hidden={!menuOpen} data-open={menuOpen}>
               <ul className={styles.list} id={menuId}>
+                <li>
+                  <HouseholdSwitcher />
+                </li>
                 {NAV_ITEMS.map((item) => {
                   const isActive = pathname ? isActivePath(pathname, item.href) : false;
                   return (
