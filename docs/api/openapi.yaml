@@ -127,6 +127,145 @@ paths:
             application/json:
               schema:
                 $ref: "#/components/schemas/Error"
+    patch:
+      summary: Update household name
+      description: Updates the name of the current household. Only owners can update the household name.
+      tags:
+        - Household
+      security:
+        - bearerAuth: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/UpdateHouseholdRequest"
+            examples:
+              updateName:
+                summary: Update household name
+                value:
+                  name: The Smith Family
+      responses:
+        "200":
+          description: Household updated.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/SuccessResponse"
+              examples:
+                success:
+                  summary: Update successful
+                  value:
+                    success: true
+        "400":
+          description: Invalid request body or user is not an owner.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Error"
+        "401":
+          description: Missing or invalid credentials.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Error"
+        "500":
+          description: Household update failed.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Error"
+
+  /api/household/list:
+    get:
+      summary: List user's households
+      description: Returns all households the user is an active member of, with indication of which is currently active.
+      tags:
+        - Household
+      security:
+        - bearerAuth: []
+      responses:
+        "200":
+          description: List of households.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/HouseholdListResponse"
+              examples:
+                households:
+                  summary: User's households
+                  value:
+                    households:
+                      - householdId: 5f0f3d65-2d7a-4f60-9d5c-6df2b6fbe5e8
+                        householdName: The Smith Family
+                        role: owner
+                        isCurrent: true
+                      - householdId: 6f0f3d65-2d7a-4f60-9d5c-6df2b6fbe5e8
+                        householdName: Work Team
+                        role: member
+                        isCurrent: false
+        "401":
+          description: Missing or invalid credentials.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Error"
+        "500":
+          description: Household lookup failed.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Error"
+
+  /api/household/switch:
+    post:
+      summary: Switch current household
+      description: Changes the user's active household. The user must be an active member of the target household.
+      tags:
+        - Household
+      security:
+        - bearerAuth: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/SwitchHouseholdRequest"
+            examples:
+              switch:
+                summary: Switch to household
+                value:
+                  householdId: 6f0f3d65-2d7a-4f60-9d5c-6df2b6fbe5e8
+      responses:
+        "200":
+          description: Household switched successfully.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/SuccessResponse"
+              examples:
+                success:
+                  summary: Switch successful
+                  value:
+                    success: true
+        "400":
+          description: Invalid household ID or user is not a member.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Error"
+        "401":
+          description: Missing or invalid credentials.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Error"
+        "500":
+          description: Household switch failed.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Error"
 
   /api/household/members:
     get:
@@ -1087,6 +1226,64 @@ components:
         memberId:
           type: string
           format: uuid
+
+    UpdateHouseholdRequest:
+      type: object
+      required:
+        - name
+      properties:
+        name:
+          type: string
+          minLength: 1
+          maxLength: 100
+
+    HouseholdListItem:
+      type: object
+      required:
+        - householdId
+        - householdName
+        - role
+        - isCurrent
+      properties:
+        householdId:
+          type: string
+          format: uuid
+        householdName:
+          type: string
+          nullable: true
+        role:
+          type: string
+          enum: [owner, member]
+        isCurrent:
+          type: boolean
+
+    HouseholdListResponse:
+      type: object
+      required:
+        - households
+      properties:
+        households:
+          type: array
+          items:
+            $ref: "#/components/schemas/HouseholdListItem"
+
+    SwitchHouseholdRequest:
+      type: object
+      required:
+        - householdId
+      properties:
+        householdId:
+          type: string
+          format: uuid
+
+    SuccessResponse:
+      type: object
+      required:
+        - success
+      properties:
+        success:
+          type: boolean
+          const: true
 
     AuditEvent:
       type: object

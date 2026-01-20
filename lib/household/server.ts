@@ -55,6 +55,76 @@ type HouseholdSettingsRow = {
   current_household_id: string | null;
 };
 
+export const updateHouseholdSchema = z
+  .object({
+    name: z.any()
+  })
+  .superRefine((value, ctx) => {
+    if (value?.name === undefined || typeof value?.name !== "string") {
+      ctx.addIssue({
+        code: z.ZodIssueCode.custom,
+        message: "Household name is required."
+      });
+      return;
+    }
+
+    const name = value.name.trim();
+    if (!name) {
+      ctx.addIssue({
+        code: z.ZodIssueCode.custom,
+        message: "Household name cannot be empty"
+      });
+      return;
+    }
+
+    if (name.length > 100) {
+      ctx.addIssue({
+        code: z.ZodIssueCode.custom,
+        message: "Household name must be 100 characters or less"
+      });
+    }
+  })
+  .transform((value) => ({
+    name: typeof value?.name === "string" ? value.name.trim() : ""
+  })) satisfies z.ZodType<components["schemas"]["UpdateHouseholdRequest"]>;
+
+export type UpdateHouseholdInput = z.infer<typeof updateHouseholdSchema>;
+
+export const switchHouseholdSchema = z
+  .object({
+    householdId: z.any()
+  })
+  .superRefine((value, ctx) => {
+    if (value?.householdId === undefined || typeof value?.householdId !== "string") {
+      ctx.addIssue({
+        code: z.ZodIssueCode.custom,
+        message: "Household ID is required."
+      });
+      return;
+    }
+
+    const householdId = value.householdId.trim();
+    if (!householdId) {
+      ctx.addIssue({
+        code: z.ZodIssueCode.custom,
+        message: "Household ID is required."
+      });
+      return;
+    }
+
+    if (!z.string().uuid().safeParse(householdId).success) {
+      ctx.addIssue({
+        code: z.ZodIssueCode.custom,
+        message: "Invalid household ID"
+      });
+    }
+  })
+  .transform((value) => ({
+    householdId: typeof value?.householdId === "string" ? value.householdId.trim() : ""
+  })) satisfies z.ZodType<components["schemas"]["SwitchHouseholdRequest"]>;
+
+export type SwitchHouseholdInput = z.infer<typeof switchHouseholdSchema>;
+
 export function hashInviteToken(token: string) {
   return createHash("sha256").update(token).digest("hex");
 }
@@ -100,6 +170,29 @@ export class InviteUrlConfigError extends Error {
   constructor(message: string) {
     super(message);
     this.name = "InviteUrlConfigError";
+  }
+}
+
+/**
+ * Thrown when a user attempts an action they're not authorized to perform
+ * (e.g., not a member of household, not an owner, etc.)
+ * Should result in 400 Bad Request responses.
+ */
+export class HouseholdAuthorizationError extends Error {
+  constructor(message: string) {
+    super(message);
+    this.name = "HouseholdAuthorizationError";
+  }
+}
+
+/**
+ * Thrown when household input fails business rules validation.
+ * Should result in 400 Bad Request responses.
+ */
+export class HouseholdValidationError extends Error {
+  constructor(message: string) {
+    super(message);
+    this.name = "HouseholdValidationError";
   }
 }
 
@@ -598,4 +691,102 @@ export async function acceptInviteAtomic(
   }
 
   return { memberId: result.member_id };
+}
+
+/**
+ * List all households user is a member of
+ */
+export async function listUserHouseholds(
+  supabase: SupabaseClient,
+  userId: string
+): Promise<{
+  householdId: string;
+  householdName: string | null;
+  role: string;
+  isCurrent: boolean;
+}[]> {
+  // Get user's current household ID
+  const currentHouseholdId = await fetchCurrentHouseholdId(supabase, userId);
+
+  // Fetch all active memberships with household details
+  const { data, error } = await supabase
+    .from("household_members")
+    .select("household_id, role, households!inner(id, name)")
+    .eq("user_id", userId)
+    .eq("status", "active")
+    .order("created_at", { ascending: true });
+
+  if (error) {
+    throw new Error(error.message);
+  }
+
+  if (!data || data.length === 0) {
+    return [];
+  }
+
+  return data.map((row: any, index: number) => ({
+    householdId: row.household_id,
+    householdName: row.households.name,
+    role: row.role,
+    // If no current household is set, mark the first one as current
+    isCurrent: currentHouseholdId
+      ? row.household_id === currentHouseholdId
+      : index === 0
+  }));
+}
+
+/**
+ * Switch user's current household
+ */
+export async function switchCurrentHousehold(
+  supabase: SupabaseClient,
+  userId: string,
+  householdId: string
+): Promise<void> {
+  // Verify user is an active member of the target household
+  const membership = await fetchHouseholdMembership(supabase, userId, householdId);
+  if (!membership) {
+    throw new HouseholdAuthorizationError("You are not a member of this household");
+  }
+
+  // Update current household
+  await setCurrentHouseholdId(supabase, userId, householdId);
+}
+
+/**
+ * Update household name
+ */
+export async function updateHouseholdName(
+  supabase: SupabaseClient,
+  userId: string,
+  householdId: string,
+  name: string
+): Promise<void> {
+  // Verify user is an owner of the household
+  const membership = await fetchHouseholdMembership(supabase, userId, householdId);
+  if (!membership) {
+    throw new HouseholdAuthorizationError("You are not a member of this household");
+  }
+  if (membership.role !== "owner") {
+    throw new HouseholdAuthorizationError("Only household owners can update the name");
+  }
+
+  // Validate name
+  const trimmedName = name.trim();
+  if (!trimmedName) {
+    throw new HouseholdValidationError("Household name cannot be empty");
+  }
+  if (trimmedName.length > 100) {
+    throw new HouseholdValidationError("Household name must be 100 characters or less");
+  }
+
+  // Update household name
+  const { error } = await supabase
+    .from("households")
+    .update({ name: trimmedName })
+    .eq("id", householdId);
+
+  if (error) {
+    throw new Error(error.message);
+  }
 }

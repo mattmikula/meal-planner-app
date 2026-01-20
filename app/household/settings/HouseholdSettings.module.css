@@ -1,0 +1,247 @@
+.container {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-6);
+  max-width: 800px;
+}
+
+.section {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-3);
+}
+
+.sectionTitle {
+  font-size: 1.25rem;
+  font-weight: 700;
+  margin: 0;
+  color: var(--color-ink);
+}
+
+.card {
+  background: var(--color-surface);
+  border: 1px solid var(--color-border);
+  border-radius: var(--radius-lg);
+  padding: var(--space-4);
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-4);
+}
+
+.field {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-2);
+}
+
+.label {
+  font-size: 0.9rem;
+  font-weight: 600;
+  color: var(--color-muted);
+  text-transform: uppercase;
+  letter-spacing: 0.03em;
+}
+
+.value {
+  font-size: 1.1rem;
+  font-weight: 600;
+  color: var(--color-ink);
+}
+
+.valueSecondary {
+  font-size: 0.9rem;
+  color: var(--color-muted);
+  font-family: monospace;
+  word-break: break-all;
+}
+
+.nameDisplay {
+  display: flex;
+  align-items: center;
+  gap: var(--space-3);
+}
+
+.editForm {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-2);
+}
+
+.input {
+  padding: 0.6rem 0.9rem;
+  border: 1px solid var(--color-border);
+  border-radius: var(--radius-md);
+  font-size: 1rem;
+  font-family: inherit;
+  color: var(--color-ink);
+  background: var(--color-surface);
+}
+
+.input:focus {
+  outline: 2px solid var(--color-accent);
+  outline-offset: 2px;
+  border-color: var(--color-accent);
+}
+
+.input:disabled {
+  opacity: 0.6;
+  cursor: not-allowed;
+}
+
+.editActions {
+  display: flex;
+  gap: var(--space-2);
+}
+
+.saveButton,
+.cancelButton,
+.editButton,
+.inviteLink {
+  padding: 0.6rem 1.2rem;
+  border-radius: var(--radius-md);
+  font-weight: 600;
+  font-size: 0.95rem;
+  cursor: pointer;
+  transition: all 0.2s ease;
+  border: 1px solid transparent;
+  text-decoration: none;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.saveButton {
+  background: var(--color-accent);
+  color: white;
+}
+
+.saveButton:hover:not(:disabled) {
+  background: var(--color-accent-strong);
+}
+
+.saveButton:disabled {
+  opacity: 0.6;
+  cursor: not-allowed;
+}
+
+.cancelButton {
+  background: transparent;
+  color: var(--color-ink);
+  border-color: var(--color-border);
+}
+
+.cancelButton:hover:not(:disabled) {
+  background: var(--color-surface-glass);
+}
+
+.cancelButton:disabled {
+  opacity: 0.6;
+  cursor: not-allowed;
+}
+
+.editButton {
+  background: transparent;
+  color: var(--color-accent);
+  border-color: var(--color-accent-alpha-30);
+  padding: 0.4rem 0.8rem;
+  font-size: 0.85rem;
+}
+
+.editButton:hover {
+  background: var(--color-accent-soft);
+  border-color: var(--color-accent-alpha-50);
+}
+
+.inviteLink {
+  background: var(--color-accent);
+  color: white;
+  width: fit-content;
+}
+
+.inviteLink:hover {
+  background: var(--color-accent-strong);
+}
+
+.updateError {
+  margin: 0;
+  padding: 0.5rem;
+  background: var(--color-error-soft);
+  border: 1px solid var(--color-error-alpha-30);
+  border-radius: var(--radius-md);
+  color: var(--color-error);
+  font-size: 0.9rem;
+}
+
+.membersList {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-3);
+}
+
+.memberItem {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: var(--space-3);
+  background: var(--color-surface-glass);
+  border: 1px solid var(--color-border);
+  border-radius: var(--radius-md);
+}
+
+.memberInfo {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-1);
+}
+
+.memberUserId {
+  font-weight: 600;
+  color: var(--color-ink);
+  font-size: 0.95rem;
+}
+
+.memberMeta {
+  display: flex;
+  align-items: center;
+  gap: var(--space-2);
+  font-size: 0.85rem;
+  color: var(--color-muted);
+}
+
+.memberRole {
+  font-weight: 600;
+  color: var(--color-accent);
+}
+
+.memberStatus {
+  text-transform: capitalize;
+}
+
+.memberSeparator {
+  opacity: 0.5;
+}
+
+.memberDate {
+  font-size: 0.8rem;
+}
+
+.description {
+  margin: 0;
+  color: var(--color-muted);
+  line-height: 1.6;
+}
+
+.loading,
+.error,
+.emptyState {
+  padding: var(--space-4);
+  text-align: center;
+  color: var(--color-muted);
+}
+
+.error {
+  color: var(--color-error);
+  background: var(--color-error-soft);
+  border: 1px solid var(--color-error-alpha-30);
+  border-radius: var(--radius-md);
+}
