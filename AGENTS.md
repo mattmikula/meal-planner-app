@@ -98,11 +98,31 @@
 - Run `pnpm test` before opening a PR when touching server logic
 
 ## Commit & Pull Request Guidelines
-- Commit messages are short, imperative, and sentence-case (e.g., "Add scaffold setup").
-- Confirm CI steps pass locally before commit/push (`pnpm typecheck`, `pnpm lint`, `pnpm test`, `pnpm build`).
-- Do not commit or push changes unless explicitly requested.
-- PRs should describe the change, include any relevant issue links, and list validation steps.
-- Include screenshots or GIFs for UI changes, plus any new environment steps.
+- **Use Conventional Commits format** for all commit messages to enable automated versioning:
+  - Format: `<type>(<scope>): <subject>`
+  - Type determines version bump:
+    - `feat:` = minor version bump (new features)
+    - `fix:` = patch version bump (bug fixes)
+    - `perf:` = patch version bump (performance improvements)
+    - `docs:` = no version bump (documentation only)
+    - `chore:` = no version bump (maintenance tasks)
+    - `style:` = no version bump (formatting, no code change)
+    - `refactor:` = no version bump (code restructuring)
+    - `test:` = no version bump (adding/updating tests)
+    - `build:` = no version bump (build system changes)
+    - `ci:` = no version bump (CI configuration changes)
+  - Breaking changes: Add `BREAKING CHANGE:` in commit body for major version bump
+  - Examples:
+    - `feat(meals): Add ingredient suggestions`
+    - `fix(auth): Resolve session timeout issue`
+    - `perf(api): Optimize database queries`
+    - `docs(readme): Update installation instructions`
+- Scope is optional but recommended (e.g., `meals`, `auth`, `ui`, `api`)
+- Subject should be imperative, sentence-case, and concise
+- Confirm CI steps pass locally before commit/push (`pnpm typecheck`, `pnpm lint`, `pnpm test`, `pnpm build`)
+- Do not commit or push changes unless explicitly requested
+- PRs should describe the change, include any relevant issue links, and list validation steps
+- Include screenshots or GIFs for UI changes, plus any new environment steps
 
 ## Security & Configuration Tips
 - Use `.env.local` for Supabase credentials; never commit secrets.
