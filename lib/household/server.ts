@@ -55,6 +55,76 @@ type HouseholdSettingsRow = {
   current_household_id: string | null;
 };
 
+export const updateHouseholdSchema = z
+  .object({
+    name: z.any()
+  })
+  .superRefine((value, ctx) => {
+    if (value?.name === undefined || typeof value?.name !== "string") {
+      ctx.addIssue({
+        code: z.ZodIssueCode.custom,
+        message: "Household name is required."
+      });
+      return;
+    }
+
+    const name = value.name.trim();
+    if (!name) {
+      ctx.addIssue({
+        code: z.ZodIssueCode.custom,
+        message: "Household name cannot be empty"
+      });
+      return;
+    }
+
+    if (name.length > 100) {
+      ctx.addIssue({
+        code: z.ZodIssueCode.custom,
+        message: "Household name must be 100 characters or less"
+      });
+    }
+  })
+  .transform((value) => ({
+    name: typeof value?.name === "string" ? value.name.trim() : ""
+  })) satisfies z.ZodType<components["schemas"]["UpdateHouseholdRequest"]>;
+
+export type UpdateHouseholdInput = z.infer<typeof updateHouseholdSchema>;
+
+export const switchHouseholdSchema = z
+  .object({
+    householdId: z.any()
+  })
+  .superRefine((value, ctx) => {
+    if (value?.householdId === undefined || typeof value?.householdId !== "string") {
+      ctx.addIssue({
+        code: z.ZodIssueCode.custom,
+        message: "Household ID is required."
+      });
+      return;
+    }
+
+    const householdId = value.householdId.trim();
+    if (!householdId) {
+      ctx.addIssue({
+        code: z.ZodIssueCode.custom,
+        message: "Household ID is required."
+      });
+      return;
+    }
+
+    if (!z.string().uuid().safeParse(householdId).success) {
+      ctx.addIssue({
+        code: z.ZodIssueCode.custom,
+        message: "Invalid household ID"
+      });
+    }
+  })
+  .transform((value) => ({
+    householdId: typeof value?.householdId === "string" ? value.householdId.trim() : ""
+  })) satisfies z.ZodType<components["schemas"]["SwitchHouseholdRequest"]>;
+
+export type SwitchHouseholdInput = z.infer<typeof switchHouseholdSchema>;
+
 export function hashInviteToken(token: string) {
   return createHash("sha256").update(token).digest("hex");
 }

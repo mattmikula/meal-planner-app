@@ -1,13 +1,18 @@
 import { NextResponse } from "next/server";
-import { z } from "zod";
-import { applyAuthCookies, jsonError, logApiError } from "@/lib/api/helpers";
+import {
+  applyAuthCookies,
+  jsonError,
+  logApiError,
+  parseJsonBody,
+  validateRequest
+} from "@/lib/api/helpers";
 import { requireApiUser } from "@/lib/auth/server";
 import { createServerSupabaseClient } from "@/lib/supabase/server";
-import { switchCurrentHousehold, HouseholdAuthorizationError } from "@/lib/household/server";
-
-const switchHouseholdSchema = z.object({
-  householdId: z.string().uuid()
-});
+import {
+  switchCurrentHousehold,
+  HouseholdAuthorizationError,
+  switchHouseholdSchema
+} from "@/lib/household/server";
 
 export async function POST(request: Request) {
   const authResult = await requireApiUser(request);
@@ -17,23 +22,21 @@ export async function POST(request: Request) {
 
   const supabase = createServerSupabaseClient();
 
-  let body;
-  try {
-    body = await request.json();
-  } catch {
-    return jsonError("Invalid request body", 400);
+  const bodyResult = await parseJsonBody(request);
+  if (!bodyResult.success) {
+    return bodyResult.response;
   }
 
-  const parseResult = switchHouseholdSchema.safeParse(body);
-  if (!parseResult.success) {
-    return jsonError("Invalid household ID", 400);
+  const validation = validateRequest(bodyResult.data, switchHouseholdSchema);
+  if (!validation.success) {
+    return validation.response;
   }
 
   try {
     await switchCurrentHousehold(
       supabase,
       authResult.userId,
-      parseResult.data.householdId
+      validation.data.householdId
     );
     const response = NextResponse.json({ success: true });
     applyAuthCookies(response, authResult.session, request);

@@ -15,7 +15,12 @@ type HouseholdMember = {
 };
 
 export default function HouseholdSettingsClient() {
-  const { household, loading: householdLoading, error: householdError } = useHousehold();
+  const {
+    household,
+    loading: householdLoading,
+    error: householdError,
+    refetch: refetchHousehold
+  } = useHousehold();
   const [members, setMembers] = useState<HouseholdMember[]>([]);
   const [membersLoading, setMembersLoading] = useState(true);
   const [membersError, setMembersError] = useState<string | null>(null);
@@ -31,8 +36,16 @@ export default function HouseholdSettingsClient() {
   }, [household]);
 
   useEffect(() => {
+    if (!household?.id) {
+      return;
+    }
+
+    let isMounted = true;
+
     async function fetchMembers() {
       try {
+        setMembersLoading(true);
+        setMembersError(null);
         const api = createApiClient();
         const { data, error } = await api.GET("/api/household/members");
 
@@ -40,16 +53,25 @@ export default function HouseholdSettingsClient() {
           throw new Error("Failed to fetch household members");
         }
 
-        setMembers(data.members);
+        if (isMounted) {
+          setMembers(data.members);
+        }
       } catch (err) {
-        setMembersError(err instanceof Error ? err.message : "Unknown error");
+        if (isMounted) {
+          setMembersError(err instanceof Error ? err.message : "Unknown error");
+        }
       } finally {
-        setMembersLoading(false);
+        if (isMounted) {
+          setMembersLoading(false);
+        }
       }
     }
 
     fetchMembers();
-  }, []);
+    return () => {
+      isMounted = false;
+    };
+  }, [household?.id]);
 
   const handleUpdateName = async () => {
     if (!newName.trim()) {
@@ -62,9 +84,8 @@ export default function HouseholdSettingsClient() {
 
     try {
       await updateHouseholdName(newName.trim());
+      await refetchHousehold();
       setEditingName(false);
-      // Reload to show updated name
-      window.location.reload();
     } catch (error) {
       setUpdateError(error instanceof Error ? error.message : "Failed to update name");
     } finally {

@@ -71,7 +71,7 @@ describe("PATCH /api/household", () => {
     );
 
     expect(response.status).toBe(400);
-    expect(await response.json()).toEqual({ error: "Invalid household name" });
+    expect(await response.json()).toEqual({ error: "Household name is required." });
   });
 
   it("returns 400 when name is empty", async () => {
@@ -86,7 +86,7 @@ describe("PATCH /api/household", () => {
     );
 
     expect(response.status).toBe(400);
-    expect(await response.json()).toEqual({ error: "Invalid household name" });
+    expect(await response.json()).toEqual({ error: "Household name cannot be empty" });
   });
 
   it("returns 400 when name is too long", async () => {
@@ -105,7 +105,9 @@ describe("PATCH /api/household", () => {
     );
 
     expect(response.status).toBe(400);
-    expect(await response.json()).toEqual({ error: "Invalid household name" });
+    expect(await response.json()).toEqual({
+      error: "Household name must be 100 characters or less"
+    });
   });
 
   it("returns 400 when user is not owner", async () => {
@@ -223,6 +225,130 @@ describe("PATCH /api/household", () => {
     expect(response.status).toBe(400);
     const json = await response.json();
     expect(json.error).toContain("owner");
+  });
+
+  it("returns 500 when update fails unexpectedly", async () => {
+    getUserMock.mockResolvedValue({
+      data: { user: { id: "user-123", email: "test@example.com" } },
+      error: null
+    });
+
+    const eqMock1 = vi.fn().mockReturnValue({
+      maybeSingle: vi.fn().mockResolvedValue({
+        data: { current_household_id: "household-456" },
+        error: null
+      })
+    });
+
+    const selectMock1 = vi.fn().mockReturnValue({
+      eq: eqMock1
+    });
+
+    supabaseFromMock.mockReturnValueOnce({
+      select: selectMock1
+    });
+
+    const membershipEq3Mock = vi.fn().mockReturnValue({
+      maybeSingle: vi.fn().mockResolvedValue({
+        data: {
+          id: "member-123",
+          household_id: "household-456",
+          role: "owner",
+          status: "active",
+          created_at: "2024-01-01"
+        },
+        error: null
+      })
+    });
+
+    const membershipEq2Mock = vi.fn().mockReturnValue({
+      eq: membershipEq3Mock
+    });
+
+    const membershipEq1Mock = vi.fn().mockReturnValue({
+      eq: membershipEq2Mock
+    });
+
+    const selectMock2 = vi.fn().mockReturnValue({
+      eq: membershipEq1Mock
+    });
+
+    supabaseFromMock.mockReturnValueOnce({
+      select: selectMock2
+    });
+
+    const householdEqMock = vi.fn().mockReturnValue({
+      single: vi.fn().mockResolvedValue({
+        data: {
+          id: "household-456",
+          name: "Old Name",
+          created_at: "2024-01-01"
+        },
+        error: null
+      })
+    });
+
+    const householdSelectMock = vi.fn().mockReturnValue({
+      eq: householdEqMock
+    });
+
+    supabaseFromMock.mockReturnValueOnce({
+      select: householdSelectMock
+    });
+
+    const membershipEq3Mock2 = vi.fn().mockReturnValue({
+      maybeSingle: vi.fn().mockResolvedValue({
+        data: {
+          id: "member-123",
+          household_id: "household-456",
+          role: "owner",
+          status: "active",
+          created_at: "2024-01-01"
+        },
+        error: null
+      })
+    });
+
+    const membershipEq2Mock2 = vi.fn().mockReturnValue({
+      eq: membershipEq3Mock2
+    });
+
+    const membershipEq1Mock2 = vi.fn().mockReturnValue({
+      eq: membershipEq2Mock2
+    });
+
+    const selectMock3 = vi.fn().mockReturnValue({
+      eq: membershipEq1Mock2
+    });
+
+    supabaseFromMock.mockReturnValueOnce({
+      select: selectMock3
+    });
+
+    const updateEqMock = vi.fn().mockResolvedValue({
+      data: null,
+      error: { message: "db error" }
+    });
+
+    const updateMock = vi.fn().mockReturnValue({
+      eq: updateEqMock
+    });
+
+    supabaseFromMock.mockReturnValueOnce({
+      update: updateMock
+    });
+
+    const { PATCH } = await import("@/app/api/household/route");
+    const response = await PATCH(
+      createRequest({
+        authorization: "Bearer token",
+        method: "PATCH",
+        body: { name: "New Name" }
+      })
+    );
+
+    expect(response.status).toBe(500);
+    expect(await response.json()).toEqual({ error: "Unable to update household." });
   });
 
   it("updates household name successfully when user is owner", async () => {
@@ -505,7 +631,7 @@ describe("POST /api/household/switch", () => {
     );
 
     expect(response.status).toBe(400);
-    expect(await response.json()).toEqual({ error: "Invalid household ID" });
+    expect(await response.json()).toEqual({ error: "Household ID is required." });
   });
 
   it("returns 400 when householdId is not a valid UUID", async () => {
@@ -628,5 +754,62 @@ describe("POST /api/household/switch", () => {
 
     expect(response.status).toBe(200);
     expect(await response.json()).toEqual({ success: true });
+  });
+
+  it("returns 500 when switch fails unexpectedly", async () => {
+    getUserMock.mockResolvedValue({
+      data: { user: { id: "user-123", email: "test@example.com" } },
+      error: null
+    });
+
+    const eqMock3 = vi.fn().mockReturnValue({
+      maybeSingle: vi.fn().mockResolvedValue({
+        data: {
+          id: "member-123",
+          household_id: "a0000000-0000-4000-8000-000000000456",
+          role: "member",
+          status: "active",
+          created_at: "2024-01-01"
+        },
+        error: null
+      })
+    });
+
+    const eqMock2 = vi.fn().mockReturnValue({
+      eq: eqMock3
+    });
+
+    const eqMock1 = vi.fn().mockReturnValue({
+      eq: eqMock2
+    });
+
+    const selectMock = vi.fn().mockReturnValue({
+      eq: eqMock1
+    });
+
+    supabaseFromMock.mockReturnValueOnce({
+      select: selectMock
+    });
+
+    const upsertMock = vi.fn().mockResolvedValue({
+      data: null,
+      error: { message: "db error" }
+    });
+
+    supabaseFromMock.mockReturnValueOnce({
+      upsert: upsertMock
+    });
+
+    const { POST } = await import("@/app/api/household/switch/route");
+    const response = await POST(
+      createRequest({
+        authorization: "Bearer token",
+        method: "switch",
+        body: { householdId: "a0000000-0000-4000-8000-000000000456" }
+      })
+    );
+
+    expect(response.status).toBe(500);
+    expect(await response.json()).toEqual({ error: "Failed to switch household" });
   });
 });

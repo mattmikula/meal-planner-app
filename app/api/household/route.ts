@@ -1,12 +1,18 @@
 import { NextResponse } from "next/server";
-import { z } from "zod";
 
-import { applyAuthCookies, jsonError, logApiError } from "@/lib/api/helpers";
+import {
+  applyAuthCookies,
+  jsonError,
+  logApiError,
+  parseJsonBody,
+  validateRequest
+} from "@/lib/api/helpers";
 import { requireApiUser } from "@/lib/auth/server";
 import {
   ensureHouseholdContext,
   HouseholdAuthorizationError,
   HouseholdValidationError,
+  updateHouseholdSchema,
   updateHouseholdName
 } from "@/lib/household/server";
 import { createServerSupabaseClient } from "@/lib/supabase/server";
@@ -42,10 +48,6 @@ export async function GET(request: Request) {
   }
 }
 
-const updateHouseholdSchema = z.object({
-  name: z.string().min(1).max(100)
-});
-
 export async function PATCH(request: Request) {
   const authResult = await requireApiUser(request);
   if ("response" in authResult) {
@@ -54,16 +56,14 @@ export async function PATCH(request: Request) {
 
   const supabase = createServerSupabaseClient();
 
-  let body;
-  try {
-    body = await request.json();
-  } catch {
-    return jsonError("Invalid request body", 400);
+  const bodyResult = await parseJsonBody(request);
+  if (!bodyResult.success) {
+    return bodyResult.response;
   }
 
-  const parseResult = updateHouseholdSchema.safeParse(body);
-  if (!parseResult.success) {
-    return jsonError("Invalid household name", 400);
+  const validation = validateRequest(bodyResult.data, updateHouseholdSchema);
+  if (!validation.success) {
+    return validation.response;
   }
 
   try {
@@ -72,7 +72,7 @@ export async function PATCH(request: Request) {
       supabase,
       authResult.userId,
       context.household.id,
-      parseResult.data.name
+      validation.data.name
     );
 
     const response = NextResponse.json({ success: true });

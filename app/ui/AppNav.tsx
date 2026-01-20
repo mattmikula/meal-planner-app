@@ -37,10 +37,11 @@ const isActivePath = (pathname: string, href: string) => {
 };
 
 function HouseholdSwitcher() {
-  const { household } = useHousehold();
-  const { households } = useHouseholdList();
+  const { household, refetch: refetchHousehold } = useHousehold();
+  const { households, refetch: refetchHouseholds } = useHouseholdList();
   const [isOpen, setIsOpen] = useState(false);
   const [switching, setSwitching] = useState(false);
+  const router = useRouter();
   const menuId = useId();
   const buttonRef = useRef<HTMLButtonElement>(null);
   const menuRef = useRef<HTMLDivElement>(null);
@@ -86,12 +87,13 @@ function HouseholdSwitcher() {
     setSwitching(true);
     try {
       await switchHousehold(householdId);
+      await Promise.all([refetchHousehold(), refetchHouseholds()]);
       setIsOpen(false);
-      // Reload the page to refresh all data
-      window.location.reload();
+      router.refresh();
     } catch (error) {
-      setSwitching(false);
       console.error("Failed to switch household:", error);
+    } finally {
+      setSwitching(false);
     }
   };
 

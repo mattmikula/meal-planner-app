@@ -1,4 +1,4 @@
-import { useEffect, useState } from "react";
+import { useCallback, useEffect, useState } from "react";
 
 export type HouseholdInfo = {
   id: string;
@@ -14,39 +14,90 @@ export type HouseholdListItem = {
   isCurrent: boolean;
 };
 
-/**
- * Hook to fetch current household context
- */
-export function useHousehold() {
-  const [household, setHousehold] = useState<HouseholdInfo | null>(null);
-  const [loading, setLoading] = useState(true);
-  const [error, setError] = useState<string | null>(null);
+type HouseholdSnapshot = {
+  household: HouseholdInfo | null;
+  loading: boolean;
+  error: string | null;
+};
 
-  useEffect(() => {
-    async function fetchHousehold() {
-      try {
-        const response = await fetch("/api/household");
-        if (!response.ok) {
-          throw new Error("Failed to fetch household");
-        }
-        const data = await response.json();
-        setHousehold({
+const householdListeners = new Set<(snapshot: HouseholdSnapshot) => void>();
+let householdSnapshot: HouseholdSnapshot = {
+  household: null,
+  loading: true,
+  error: null
+};
+let householdPromise: Promise<void> | null = null;
+let householdLoaded = false;
+
+const notifyHouseholdListeners = (snapshot: HouseholdSnapshot) => {
+  householdSnapshot = snapshot;
+  householdListeners.forEach((listener) => listener(snapshot));
+};
+
+const loadHousehold = async ({ showLoading }: { showLoading: boolean }) => {
+  if (householdPromise) {
+    return householdPromise;
+  }
+
+  const shouldShowLoading = showLoading || !householdLoaded;
+  notifyHouseholdListeners({
+    household: householdSnapshot.household,
+    loading: shouldShowLoading ? true : householdSnapshot.loading,
+    error: null
+  });
+
+  householdPromise = (async () => {
+    try {
+      const response = await fetch("/api/household");
+      if (!response.ok) {
+        throw new Error("Failed to fetch household");
+      }
+      const data = await response.json();
+      notifyHouseholdListeners({
+        household: {
           id: data.id,
           name: data.name,
           role: data.role,
           status: data.status
-        });
-      } catch (err) {
-        setError(err instanceof Error ? err.message : "Unknown error");
-      } finally {
-        setLoading(false);
-      }
+        },
+        loading: false,
+        error: null
+      });
+    } catch (err) {
+      notifyHouseholdListeners({
+        household: null,
+        loading: false,
+        error: err instanceof Error ? err.message : "Unknown error"
+      });
+    } finally {
+      householdLoaded = true;
+      householdPromise = null;
     }
+  })();
 
-    fetchHousehold();
+  return householdPromise;
+};
+
+/**
+ * Hook to fetch current household context
+ */
+export function useHousehold() {
+  const [snapshot, setSnapshot] = useState<HouseholdSnapshot>(() => householdSnapshot);
+
+  useEffect(() => {
+    householdListeners.add(setSnapshot);
+    return () => {
+      householdListeners.delete(setSnapshot);
+    };
   }, []);
 
-  return { household, loading, error };
+  useEffect(() => {
+    void loadHousehold({ showLoading: true });
+  }, []);
+
+  const refetch = useCallback(() => loadHousehold({ showLoading: false }), []);
+
+  return { household: snapshot.household, loading: snapshot.loading, error: snapshot.error, refetch };
 }
 
 /**
@@ -57,7 +108,7 @@ export function useHouseholdList() {
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
 
-  const fetchHouseholds = async () => {
+  const fetchHouseholds = useCallback(async () => {
     try {
       setLoading(true);
       const response = await fetch("/api/household/list");
@@ -71,12 +122,11 @@ export function useHouseholdList() {
     } finally {
       setLoading(false);
     }
-  };
+  }, []);
 
   useEffect(() => {
-    fetchHouseholds();
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, []);
+    void fetchHouseholds();
+  }, [fetchHouseholds]);
 
   return { households, loading, error, refetch: fetchHouseholds };
 }
