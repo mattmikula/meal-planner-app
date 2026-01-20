@@ -37,6 +37,7 @@ const isActivePath = (pathname: string, href: string) => {
 function AccountMenu() {
   const api = useMemo(() => createApiClient(), []);
   const router = useRouter();
+  const pathname = usePathname();
   const [isAuthenticated, setIsAuthenticated] = useState<boolean | null>(null);
   const [isOpen, setIsOpen] = useState(false);
   const [status, setStatus] = useState<string | null>(null);
@@ -105,8 +106,13 @@ function AccountMenu() {
     const { error, response } = await api.POST("/api/logout");
     if (response?.ok) {
       setIsOpen(false);
-      router.push("/");
-      router.refresh();
+      // Force full reload if already on home page to reset client state
+      if (pathname === "/") {
+        window.location.href = "/";
+      } else {
+        router.push("/");
+        router.refresh();
+      }
       return;
     }
     setStatus(getApiErrorMessage(error) ?? AccountStatusMessage.SignOutFailed);
