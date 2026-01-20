@@ -8,7 +8,7 @@ const authMocks = vi.hoisted(() => ({
 }));
 
 const householdMocks = vi.hoisted(() => ({
-  ensureHouseholdContext: vi.fn()
+  fetchHouseholdContextReadOnly: vi.fn()
 }));
 
 const supabaseMocks = vi.hoisted(() => ({
@@ -23,7 +23,7 @@ vi.mock("@/lib/household/server", async () => {
   );
   return {
     ...actual,
-    ensureHouseholdContext: householdMocks.ensureHouseholdContext
+    fetchHouseholdContextReadOnly: householdMocks.fetchHouseholdContextReadOnly
   };
 });
 
@@ -65,7 +65,7 @@ describe("GET /api/household", () => {
       email: "test@example.com",
       session: authSession
     });
-    householdMocks.ensureHouseholdContext.mockResolvedValue(householdContext);
+    householdMocks.fetchHouseholdContextReadOnly.mockResolvedValue(householdContext);
     supabaseMocks.createServerSupabaseClient.mockReturnValue({});
 
     return getHousehold(
@@ -98,6 +98,22 @@ describe("GET /api/household", () => {
     });
   });
 
+  it("returns 404 when no household exists", async () => {
+    authMocks.requireApiUser.mockResolvedValue({
+      userId: "user-1",
+      email: "test@example.com"
+    });
+    householdMocks.fetchHouseholdContextReadOnly.mockResolvedValue(null);
+    supabaseMocks.createServerSupabaseClient.mockReturnValue({});
+
+    const response = await getHousehold(
+      new Request("https://localhost/api/household")
+    );
+
+    expect(response.status).toBe(404);
+    expect(await response.json()).toEqual({ error: "Household not found." });
+  });
+
   it("sets auth cookies when session exists", async () => {
     await setupHouseholdSuccess();
 
@@ -111,7 +127,7 @@ describe("GET /api/household/members", () => {
       userId: "user-1",
       email: "test@example.com"
     });
-    householdMocks.ensureHouseholdContext.mockResolvedValue(householdContext);
+    householdMocks.fetchHouseholdContextReadOnly.mockResolvedValue(householdContext);
 
     const query = createQuery({
       data: [
@@ -154,6 +170,22 @@ describe("GET /api/household/members", () => {
     });
   });
 
+  it("returns 404 when no household exists", async () => {
+    authMocks.requireApiUser.mockResolvedValue({
+      userId: "user-1",
+      email: "test@example.com"
+    });
+    householdMocks.fetchHouseholdContextReadOnly.mockResolvedValue(null);
+    supabaseMocks.createServerSupabaseClient.mockReturnValue({});
+
+    const response = await getMembers(
+      new Request("http://localhost/api/household/members")
+    );
+
+    expect(response.status).toBe(404);
+    expect(await response.json()).toEqual({ error: "Household not found." });
+  });
+
   it("queries household members table", async () => {
     const { supabase } = await setupMembersResponse();
 
@@ -165,7 +197,7 @@ describe("GET /api/household/members", () => {
       userId: "user-1",
       email: "test@example.com"
     });
-    householdMocks.ensureHouseholdContext.mockResolvedValue(householdContext);
+    householdMocks.fetchHouseholdContextReadOnly.mockResolvedValue(householdContext);
 
     const query = createQuery({
       data: null,

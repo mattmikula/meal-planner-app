@@ -12,6 +12,7 @@ import {
   ensureHouseholdContext,
   createHouseholdInvite,
   createHouseholdInviteSchema,
+  fetchHouseholdMembership,
   InviteUrlConfigError
 } from "@/lib/household/server";
 import { createServerSupabaseClient } from "@/lib/supabase/server";
@@ -36,9 +37,23 @@ export async function POST(request: Request) {
 
   try {
     const context = await ensureHouseholdContext(supabase, authResult.userId);
+    const requestedHouseholdId = validation.data.householdId;
+    const householdId = requestedHouseholdId ?? context.household.id;
+
+    if (requestedHouseholdId && requestedHouseholdId !== context.household.id) {
+      const membership = await fetchHouseholdMembership(
+        supabase,
+        authResult.userId,
+        requestedHouseholdId
+      );
+      if (!membership) {
+        return jsonError("You are not a member of this household.", 403);
+      }
+    }
+
     const invite = await createHouseholdInvite(
       supabase,
-      context.household.id,
+      householdId,
       authResult.userId,
       validation.data
     );

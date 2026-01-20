@@ -139,6 +139,135 @@ export interface paths {
                         "application/json": components["schemas"]["Error"];
                     };
                 };
+                /** @description Household not found. */
+                404: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["Error"];
+                    };
+                };
+                /** @description Household lookup failed. */
+                500: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["Error"];
+                    };
+                };
+            };
+        };
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        /**
+         * Update current household
+         * @description Sets the current household for the user and optionally updates its name.
+         */
+        patch: {
+            parameters: {
+                query?: never;
+                header?: never;
+                path?: never;
+                cookie?: never;
+            };
+            requestBody: {
+                content: {
+                    "application/json": components["schemas"]["UpdateCurrentHouseholdRequest"];
+                };
+            };
+            responses: {
+                /** @description Household context. */
+                200: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["HouseholdContext"];
+                    };
+                };
+                /** @description Invalid request body. */
+                400: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["Error"];
+                    };
+                };
+                /** @description Missing or invalid credentials. */
+                401: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["Error"];
+                    };
+                };
+                /** @description User is not a member of the household or lacks permission to update it. */
+                403: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["Error"];
+                    };
+                };
+                /** @description Household update failed. */
+                500: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["Error"];
+                    };
+                };
+            };
+        };
+        trace?: never;
+    };
+    "/api/households": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * List households
+         * @description Returns all households for the user, including which one is current.
+         */
+        get: {
+            parameters: {
+                query?: never;
+                header?: never;
+                path?: never;
+                cookie?: never;
+            };
+            requestBody?: never;
+            responses: {
+                /** @description Household list. */
+                200: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["HouseholdListResponse"];
+                    };
+                };
+                /** @description Missing or invalid credentials. */
+                401: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["Error"];
+                    };
+                };
                 /** @description Household lookup failed. */
                 500: {
                     headers: {
@@ -196,6 +325,15 @@ export interface paths {
                         "application/json": components["schemas"]["Error"];
                     };
                 };
+                /** @description Household not found. */
+                404: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["Error"];
+                    };
+                };
                 /** @description Member lookup failed. */
                 500: {
                     headers: {
@@ -226,7 +364,7 @@ export interface paths {
         put?: never;
         /**
          * Create household invite
-         * @description Creates an invite and returns a shareable invite link.
+         * @description Creates an invite and returns a shareable invite link. Optionally target a specific household.
          */
         post: {
             parameters: {
@@ -261,6 +399,15 @@ export interface paths {
                 };
                 /** @description Missing or invalid credentials. */
                 401: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["Error"];
+                    };
+                };
+                /** @description User is not a member of the household. */
+                403: {
                     headers: {
                         [name: string]: unknown;
                     };
@@ -1376,6 +1523,24 @@ export interface components {
             /** @enum {string} */
             status: "active" | "inactive";
         };
+        HouseholdSummary: {
+            /** Format: uuid */
+            id: string;
+            name: string | null;
+            /** @enum {string} */
+            role: "owner" | "member";
+            /** @enum {string} */
+            status: "active" | "inactive";
+            isCurrent: boolean;
+        };
+        HouseholdListResponse: {
+            households: components["schemas"]["HouseholdSummary"][];
+        };
+        UpdateCurrentHouseholdRequest: {
+            /** Format: uuid */
+            householdId: string;
+            name?: string | null;
+        };
         HouseholdMember: {
             /** Format: uuid */
             id: string;
@@ -1394,6 +1559,8 @@ export interface components {
         HouseholdInviteRequest: {
             /** Format: email */
             email: string;
+            /** Format: uuid */
+            householdId?: string;
         };
         HouseholdInviteResponse: {
             /** Format: uuid */
