@@ -20,6 +20,7 @@ const NAV_ITEMS: NavItem[] = [
   { href: "/meals", label: "Meals" },
   { href: "/ingredients", label: "Ingredients" },
   { href: "/groceries", label: "Groceries" },
+  { href: "/household", label: "Household" },
   { href: "/household/invite", label: "Invite member" }
 ];
 

@@ -121,6 +121,100 @@ paths:
             application/json:
               schema:
                 $ref: "#/components/schemas/Error"
+        "404":
+          description: Household not found.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Error"
+        "500":
+          description: Household lookup failed.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Error"
+    patch:
+      summary: Update current household
+      description: Sets the current household for the user and optionally updates its name.
+      tags:
+        - Household
+      security:
+        - bearerAuth: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/UpdateCurrentHouseholdRequest"
+            examples:
+              update:
+                summary: Update current household
+                value:
+                  householdId: 5f0f3d65-2d7a-4f60-9d5c-6df2b6fbe5e8
+                  name: Home
+      responses:
+        "200":
+          description: Household context.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/HouseholdContext"
+        "400":
+          description: Invalid request body.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Error"
+        "401":
+          description: Missing or invalid credentials.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Error"
+        "403":
+          description: User is not a member of the household or lacks permission to update it.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Error"
+        "500":
+          description: Household update failed.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Error"
+
+  /api/households:
+    get:
+      summary: List households
+      description: Returns all households for the user, including which one is current.
+      tags:
+        - Household
+      security:
+        - bearerAuth: []
+      responses:
+        "200":
+          description: Household list.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/HouseholdListResponse"
+              examples:
+                households:
+                  summary: Household list
+                  value:
+                    households:
+                      - id: 5f0f3d65-2d7a-4f60-9d5c-6df2b6fbe5e8
+                        name: Home
+                        role: owner
+                        status: active
+                        isCurrent: true
+        "401":
+          description: Missing or invalid credentials.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Error"
         "500":
           description: Household lookup failed.
           content:
@@ -159,6 +253,12 @@ paths:
             application/json:
               schema:
                 $ref: "#/components/schemas/Error"
+        "404":
+          description: Household not found.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Error"
         "500":
           description: Member lookup failed.
           content:
@@ -169,7 +269,7 @@ paths:
   /api/household/invites:
     post:
       summary: Create household invite
-      description: Creates an invite and returns a shareable invite link.
+      description: Creates an invite and returns a shareable invite link. Optionally target a specific household.
       tags:
         - Household
       security:
@@ -206,6 +306,12 @@ paths:
                 $ref: "#/components/schemas/Error"
         "401":
           description: Missing or invalid credentials.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Error"
+        "403":
+          description: User is not a member of the household.
           content:
             application/json:
               schema:
@@ -1010,6 +1116,53 @@ components:
           type: string
           enum: [active, inactive]
 
+    HouseholdSummary:
+      type: object
+      required:
+        - id
+        - name
+        - role
+        - status
+        - isCurrent
+      properties:
+        id:
+          type: string
+          format: uuid
+        name:
+          type: string
+          nullable: true
+        role:
+          type: string
+          enum: [owner, member]
+        status:
+          type: string
+          enum: [active, inactive]
+        isCurrent:
+          type: boolean
+
+    HouseholdListResponse:
+      type: object
+      required:
+        - households
+      properties:
+        households:
+          type: array
+          items:
+            $ref: "#/components/schemas/HouseholdSummary"
+
+    UpdateCurrentHouseholdRequest:
+      type: object
+      required:
+        - householdId
+      properties:
+        householdId:
+          type: string
+          format: uuid
+        name:
+          type: string
+          nullable: true
+          maxLength: 100
+
     HouseholdMember:
       type: object
       required:
@@ -1053,6 +1206,9 @@ components:
         email:
           type: string
           format: email
+        householdId:
+          type: string
+          format: uuid
 
     HouseholdInviteResponse:
       type: object

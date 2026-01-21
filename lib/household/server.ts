@@ -28,6 +28,9 @@ export type HouseholdContext = {
 };
 
 export type HouseholdMember = components["schemas"]["HouseholdMember"];
+export type HouseholdSummary = components["schemas"]["HouseholdSummary"];
+type HouseholdRole = components["schemas"]["HouseholdSummary"]["role"];
+type HouseholdStatus = components["schemas"]["HouseholdSummary"]["status"];
 
 type HouseholdMemberRow = {
   id: string;
@@ -43,6 +46,24 @@ type HouseholdMemberDetailRow = {
   role: string;
   status: string;
   created_at: string;
+};
+
+type HouseholdSummaryRow = {
+  id: string;
+  household_id: string;
+  role: HouseholdRole;
+  status: HouseholdStatus;
+  created_at: string;
+  households:
+    | {
+        id: string;
+        name: string | null;
+      }
+    | {
+        id: string;
+        name: string | null;
+      }[]
+    | null;
 };
 
 type HouseholdRow = {
@@ -146,6 +167,23 @@ const mapMembership = (member: HouseholdMemberRow, userId: string) => ({
   createdAt: member.created_at
 });
 
+const mapHouseholdSummary = (
+  row: HouseholdSummaryRow,
+  currentHouseholdId: string | null
+): HouseholdSummary => {
+  const household = Array.isArray(row.households)
+    ? row.households[0] ?? null
+    : row.households ?? null;
+
+  return {
+    id: row.household_id,
+    name: household?.name ?? null,
+    role: row.role,
+    status: row.status,
+    isCurrent: row.household_id === currentHouseholdId
+  };
+};
+
 async function fetchCurrentHouseholdId(supabase: SupabaseClient, userId: string) {
   const { data, error } = await supabase
     .from("user_household_settings")
@@ -178,6 +216,48 @@ async function setCurrentHouseholdId(
   if (error) {
     throw new Error(error.message);
   }
+}
+
+async function updateHouseholdName(
+  supabase: SupabaseClient,
+  householdId: string,
+  name: string | null
+) {
+  const { error } = await supabase
+    .from("households")
+    .update({ name })
+    .eq("id", householdId);
+
+  if (error) {
+    throw new Error(error.message);
+  }
+}
+
+export async function listHouseholdsForUser(
+  supabase: SupabaseClient,
+  userId: string
+): Promise<HouseholdSummary[]> {
+  const currentHouseholdId = await fetchCurrentHouseholdId(supabase, userId);
+
+  const { data, error } = await supabase
+    .from("household_members")
+    .select("id, household_id, role, status, created_at, households (id, name)")
+    .eq("user_id", userId)
+    .eq("status", "active")
+    .order("created_at", { ascending: true });
+
+  if (error) {
+    throw new Error(error.message);
+  }
+
+  const rows = (data as HouseholdSummaryRow[] | null) ?? [];
+  const householdIds = new Set(rows.map((row) => row.household_id));
+  const effectiveCurrentId =
+    currentHouseholdId && householdIds.has(currentHouseholdId)
+      ? currentHouseholdId
+      : null;
+
+  return rows.map((row) => mapHouseholdSummary(row, effectiveCurrentId));
 }
 
 export async function fetchHouseholdMembership(
@@ -279,9 +359,48 @@ export async function fetchHouseholdContext(
   };
 }
 
-export async function ensureHouseholdContext(
+export async function fetchHouseholdContextReadOnly(
   supabase: SupabaseClient,
   userId: string
+): Promise<HouseholdContext | null> {
+  const currentHouseholdId = await fetchCurrentHouseholdId(supabase, userId);
+  let membership = currentHouseholdId
+    ? await fetchHouseholdMembership(supabase, userId, currentHouseholdId)
+    : null;
+
+  if (!membership) {
+    membership = await fetchHouseholdMembership(supabase, userId);
+    if (!membership) {
+      return null;
+    }
+  }
+
+  const { data, error } = await supabase
+    .from("households")
+    .select("id, name, created_at")
+    .eq("id", membership.householdId)
+    .single();
+
+  if (error || !data) {
+    throw new Error(error?.message ?? "Missing household");
+  }
+
+  const household = data as HouseholdRow;
+
+  return {
+    household: {
+      id: household.id,
+      name: household.name,
+      createdAt: household.created_at
+    },
+    membership
+  };
+}
+
+export async function ensureHouseholdContext(
+  supabase: SupabaseClient,
+  userId: string,
+  householdName?: string | null
 ): Promise<HouseholdContext> {
   const existing = await fetchHouseholdContext(supabase, userId);
   if (existing) {
@@ -291,7 +410,10 @@ export async function ensureHouseholdContext(
   // Use RPC to create household and member atomically in a transaction
   const { data: result, error: rpcError } = await supabase.rpc(
     "create_household_with_member",
-    { p_user_id: userId }
+    {
+      p_user_id: userId,
+      p_name: householdName ?? null
+    }
   );
 
   if (rpcError || !result) {
@@ -304,6 +426,107 @@ export async function ensureHouseholdContext(
   const context = await fetchHouseholdContext(supabase, userId);
   if (!context) {
     throw new Error("Failed to fetch created household context");
+  }
+
+  return context;
+}
+
+const householdIdSchema = z
+  .any()
+  .superRefine((value, ctx) => {
+    if (value === undefined) {
+      ctx.addIssue({
+        code: z.ZodIssueCode.custom,
+        message: "Household is required."
+      });
+      return;
+    }
+    if (typeof value !== "string") {
+      ctx.addIssue({
+        code: z.ZodIssueCode.custom,
+        message: "Household ID must be a string."
+      });
+      return;
+    }
+    const trimmed = value.trim();
+    if (!trimmed) {
+      ctx.addIssue({
+        code: z.ZodIssueCode.custom,
+        message: "Household is required."
+      });
+      return;
+    }
+    if (!z.string().uuid().safeParse(trimmed).success) {
+      ctx.addIssue({
+        code: z.ZodIssueCode.custom,
+        message: "Household ID must be a valid UUID."
+      });
+    }
+  })
+  .transform((value) => (typeof value === "string" ? value.trim() : value)) as z.ZodType<string>;
+
+const householdNameSchema = z
+  .any()
+  .superRefine((value, ctx) => {
+    if (value === null) {
+      return;
+    }
+    if (typeof value !== "string") {
+      ctx.addIssue({
+        code: z.ZodIssueCode.custom,
+        message: "Name must be a string."
+      });
+      return;
+    }
+    const trimmed = value.trim();
+    if (!trimmed) {
+      ctx.addIssue({
+        code: z.ZodIssueCode.custom,
+        message: "Name cannot be empty."
+      });
+      return;
+    }
+    if (trimmed.length > 100) {
+      ctx.addIssue({
+        code: z.ZodIssueCode.custom,
+        message: "Name must be 100 characters or less."
+      });
+    }
+  })
+  .transform((value) => (typeof value === "string" ? value.trim() : value)) as z.ZodType<
+  string | null
+>;
+
+export const updateCurrentHouseholdSchema = z.object({
+  householdId: householdIdSchema,
+  name: householdNameSchema.optional()
+}) satisfies z.ZodType<components["schemas"]["UpdateCurrentHouseholdRequest"]>;
+
+export type UpdateCurrentHouseholdInput = z.infer<typeof updateCurrentHouseholdSchema>;
+
+export async function setCurrentHouseholdForUser(
+  supabase: SupabaseClient,
+  userId: string,
+  householdId: string,
+  householdName?: string | null
+): Promise<HouseholdContext | { status: number; message: string }> {
+  const membership = await fetchHouseholdMembership(supabase, userId, householdId);
+  if (!membership) {
+    return { status: 403, message: "You are not a member of this household." };
+  }
+
+  if (householdName !== undefined) {
+    if (membership.role !== "owner") {
+      return { status: 403, message: "Only household owners can rename this household." };
+    }
+    await updateHouseholdName(supabase, householdId, householdName);
+  }
+
+  await setCurrentHouseholdId(supabase, userId, householdId);
+
+  const context = await fetchHouseholdContext(supabase, userId);
+  if (!context) {
+    throw new Error("Missing household context after update.");
   }
 
   return context;
@@ -362,7 +585,8 @@ const inviteEmailSchema = z
   ) as z.ZodType<string>;
 
 export const createHouseholdInviteSchema = z.object({
-  email: inviteEmailSchema
+  email: inviteEmailSchema,
+  householdId: householdIdSchema.optional()
 }) satisfies z.ZodType<components["schemas"]["HouseholdInviteRequest"]>;
 
 export type CreateHouseholdInviteInput = z.infer<typeof createHouseholdInviteSchema>;
@@ -502,6 +726,8 @@ export async function acceptHouseholdInvite(
         return { status: 409, message: "You are already a member of this household." };
     }
   }
+
+  await setCurrentHouseholdId(supabase, userId, invite.householdId);
 
   return { householdId: invite.householdId, memberId: result.memberId };
 }

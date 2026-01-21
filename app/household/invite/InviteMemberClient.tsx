@@ -1,7 +1,7 @@
 "use client";
 
 import { useRouter } from "next/navigation";
-import { useMemo, useState, type FormEvent } from "react";
+import { useEffect, useMemo, useRef, useState, type FormEvent } from "react";
 
 import AppNav from "@/app/ui/AppNav";
 import Button from "@/app/ui/Button";
@@ -12,10 +12,12 @@ import formStyles from "@/app/ui/FormControls.module.css";
 import layoutStyles from "@/app/ui/Layout.module.css";
 import { createApiClient } from "@/lib/api/client";
 import { getApiErrorMessage } from "@/lib/api/errors";
+import type { components } from "@/lib/api/types";
 import { normalizeEmail } from "@/lib/utils/email";
 
 enum InviteMemberStatusMessage {
   EmailRequired = "Email is required.",
+  HouseholdsLoadFailed = "Unable to load households.",
   InviteFailed = "Unable to create invite link.",
   InviteReady = "Invite link ready. Share it with your household member.",
   ClipboardUnavailable = "Your browser does not support automatic copying. Please copy the invite link manually.",
@@ -24,13 +26,70 @@ enum InviteMemberStatusMessage {
   ClipboardFailed = "Unable to copy the invite link automatically. Please copy it manually."
 }
 
+type HouseholdSummary = components["schemas"]["HouseholdSummary"];
+
+const formatHouseholdName = (name: string | null) =>
+  name && name.trim() ? name : "Untitled household";
+
 export default function InviteMemberClient() {
   const api = useMemo(() => createApiClient(), []);
   const router = useRouter();
+  const isMountedRef = useRef(true);
   const [email, setEmail] = useState("");
   const [status, setStatus] = useState<string | null>(null);
   const [inviteUrl, setInviteUrl] = useState<string | null>(null);
   const [sending, setSending] = useState(false);
+  const [households, setHouseholds] = useState<HouseholdSummary[]>([]);
+  const [householdId, setHouseholdId] = useState("");
+  const [loadingHouseholds, setLoadingHouseholds] = useState(true);
+
+  useEffect(() => {
+    isMountedRef.current = true;
+
+    const loadHouseholds = async () => {
+      setLoadingHouseholds(true);
+
+      try {
+        const { data, response, error } = await api.GET("/api/households");
+
+        if (!isMountedRef.current) {
+          return;
+        }
+
+        if (response?.status === 401) {
+          router.replace("/");
+          return;
+        }
+
+        if (!response?.ok || !data) {
+          setStatus(getApiErrorMessage(error) ?? InviteMemberStatusMessage.HouseholdsLoadFailed);
+          return;
+        }
+
+        const selected =
+          data.households.find((household) => household.isCurrent)?.id ??
+          data.households[0]?.id ??
+          "";
+
+        setHouseholds(data.households);
+        setHouseholdId(selected);
+      } catch {
+        if (isMountedRef.current) {
+          setStatus(InviteMemberStatusMessage.HouseholdsLoadFailed);
+        }
+      } finally {
+        if (isMountedRef.current) {
+          setLoadingHouseholds(false);
+        }
+      }
+    };
+
+    loadHouseholds();
+
+    return () => {
+      isMountedRef.current = false;
+    };
+  }, [api, router]);
 
   const handleInvite = async (event: FormEvent<HTMLFormElement>) => {
     event.preventDefault();
@@ -46,8 +105,11 @@ export default function InviteMemberClient() {
     setSending(true);
 
     try {
+      const inviteBody = householdId
+        ? { email: normalizedEmail, householdId }
+        : { email: normalizedEmail };
       const { data, error, response } = await api.POST("/api/household/invites", {
-        body: { email: normalizedEmail }
+        body: inviteBody
       });
 
       setSending(false);
@@ -106,6 +168,28 @@ export default function InviteMemberClient() {
       <div className={layoutStyles.stackLg}>
         <Card className={layoutStyles.stack}>
           <form onSubmit={handleInvite} className={layoutStyles.stack}>
+            {households.length > 1 ? (
+              <div className={layoutStyles.stackSm}>
+                <label htmlFor="invite-household" className={formStyles.label}>
+                  Household
+                </label>
+                <select
+                  id="invite-household"
+                  name="householdId"
+                  className={formStyles.select}
+                  value={householdId}
+                  onChange={(event) => setHouseholdId(event.target.value)}
+                  disabled={loadingHouseholds}
+                >
+                  {households.map((household) => (
+                    <option key={household.id} value={household.id}>
+                      {formatHouseholdName(household.name)}
+                    </option>
+                  ))}
+                </select>
+              </div>
+            ) : null}
+
             <div className={layoutStyles.stackSm}>
               <label htmlFor="invite-email" className={formStyles.label}>
                 Email
