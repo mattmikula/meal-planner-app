@@ -174,7 +174,8 @@ export default function AppNav() {
     return window.matchMedia("(min-width: 900px)").matches;
   });
   const menuId = useId();
-  const menuOpen = isDesktop || isMenuOpen;
+  const isDesktopNav = isMounted && isDesktop;
+  const menuOpen = isDesktopNav ? true : isMenuOpen;
 
   useEffect(() => {
     setIsMounted(true);
@@ -219,29 +220,54 @@ export default function AppNav() {
     };
   }, [isMenuOpen]);
 
+  const navList = (
+    <ul className={`${styles.list} ${styles.navList}`} id={menuId}>
+      {NAV_ITEMS.map((item) => {
+        const isActive = pathname ? isActivePath(pathname, item.href) : false;
+        return (
+          <li key={item.href}>
+            <Link
+              href={item.href}
+              className={`${styles.link}${isActive ? ` ${styles.linkActive}` : ""}`}
+              aria-current={isActive ? "page" : undefined}
+            >
+              {item.label}
+            </Link>
+          </li>
+        );
+      })}
+      <li>
+        <AccountMenu />
+      </li>
+    </ul>
+  );
+
   return (
     <>
       <nav className={styles.nav} aria-label="Primary" data-menu-open={menuOpen}>
         <div className={styles.bar}>
-          <button
-            type="button"
-            className={styles.menuButton}
-            aria-expanded={menuOpen}
-            aria-controls={menuId}
-            aria-label="Menu"
-            onClick={() => setIsMenuOpen((open) => !open)}
-          >
-            <svg viewBox="0 0 24 24" width="24" height="24" aria-hidden="true">
-              <path
-                d="M3 18h18v-2H3v2zm0-5h18v-2H3v2zm0-7v2h18V6H3z"
-                fill="currentColor"
-              />
-            </svg>
-          </button>
+          {!isDesktopNav ? (
+            <button
+              type="button"
+              className={styles.menuButton}
+              aria-expanded={menuOpen}
+              aria-controls={menuId}
+              aria-label="Menu"
+              onClick={() => setIsMenuOpen((open) => !open)}
+            >
+              <svg viewBox="0 0 24 24" width="24" height="24" aria-hidden="true">
+                <path
+                  d="M3 18h18v-2H3v2zm0-5h18v-2H3v2zm0-7v2h18V6H3z"
+                  fill="currentColor"
+                />
+              </svg>
+            </button>
+          ) : null}
           <Link href="/" className={styles.brand}>
             Meal Planner
           </Link>
         </div>
+        {isDesktopNav ? navList : null}
       </nav>
       {isMounted && !isDesktop && menuOpen
         ? createPortal(
@@ -254,28 +280,10 @@ export default function AppNav() {
             document.body
           )
         : null}
-      {isMounted
+      {isMounted && !isDesktop
         ? createPortal(
             <div className={styles.drawer} aria-hidden={!menuOpen} data-open={menuOpen}>
-              <ul className={styles.list} id={menuId}>
-                {NAV_ITEMS.map((item) => {
-                  const isActive = pathname ? isActivePath(pathname, item.href) : false;
-                  return (
-                    <li key={item.href}>
-                      <Link
-                        href={item.href}
-                        className={`${styles.link}${isActive ? ` ${styles.linkActive}` : ""}`}
-                        aria-current={isActive ? "page" : undefined}
-                      >
-                        {item.label}
-                      </Link>
-                    </li>
-                  );
-                })}
-                <li>
-                  <AccountMenu />
-                </li>
-              </ul>
+              {navList}
             </div>,
             document.body
           )
