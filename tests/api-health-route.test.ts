@@ -36,6 +36,6 @@ describe("GET /api/health", () => {
     const response = await GET();
 
     expect(response.status).toBe(500);
-    expect(await response.json()).toEqual({ error: "Health check failed." });
+    expect(await response.json()).toEqual({ ok: false, error: "Health check failed." });
   });
 });
