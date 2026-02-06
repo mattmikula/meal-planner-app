@@ -39,6 +39,16 @@ describe("POST /api/verify-otp", () => {
     expect(response.status).toBe(400);
   });
 
+  it("returns 400 when email format is invalid", async () => {
+    const { POST } = await import("@/app/api/verify-otp/route");
+    const response = await POST(
+      createRequest({ email: "not-an-email", token: "123456" })
+    );
+
+    expect(response.status).toBe(400);
+    expect(await response.json()).toEqual({ error: "Invalid email format." });
+  });
+
   it("returns 401 when verification fails", async () => {
     verifyOtpMock.mockResolvedValue({
       data: { session: null, user: null },

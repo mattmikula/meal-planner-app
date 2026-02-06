@@ -23,6 +23,7 @@ type ApiAuthFailure = {
 };
 
 const BEARER_TOKEN_REGEX = /^bearer\s+/i;
+const OTP_EMAIL_FORMAT_SCHEMA = z.string().email();
 
 type RefreshResult = {
   userId: string;
@@ -48,6 +49,14 @@ export const verifyOtpSchema = z
       ctx.addIssue({
         code: z.ZodIssueCode.custom,
         message: "Email and code are required."
+      });
+      return;
+    }
+
+    if (!OTP_EMAIL_FORMAT_SCHEMA.safeParse(email).success) {
+      ctx.addIssue({
+        code: z.ZodIssueCode.custom,
+        message: "Invalid email format."
       });
     }
   })

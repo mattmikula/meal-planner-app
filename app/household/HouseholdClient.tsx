@@ -25,6 +25,8 @@ enum HouseholdStatusMessage {
   NameUpdateFailed = "Unable to update household name."
 }
 
+const ELLIPSIS = "\u2026";
+
 const formatHouseholdName = (name: string | null) =>
   name && name.trim() ? name : "Untitled household";
 
@@ -252,7 +254,7 @@ export default function HouseholdClient() {
               autoComplete="off"
               maxLength={100}
               disabled={!currentId || !canRename}
-              placeholder="Home..."
+              placeholder={`Home${ELLIPSIS}`}
             />
             {!canRename && currentId ? (
               <span className={layoutStyles.textMuted}>
@@ -266,7 +268,7 @@ export default function HouseholdClient() {
               onClick={handleRename}
               disabled={!canSaveName || nameSaving}
             >
-              {nameSaving ? "Saving..." : "Save Name"}
+              {nameSaving ? `Saving${ELLIPSIS}` : "Save Name"}
             </Button>
           </div>
         </Card>
@@ -302,9 +304,9 @@ export default function HouseholdClient() {
               onClick={handleUpdate}
               disabled={saving || loading || !selectedId || selectedId === currentId}
             >
-              {saving ? "Updating..." : "Set Current Household"}
+              {saving ? `Updating${ELLIPSIS}` : "Set Current Household"}
             </Button>
-            {loading ? <span className={layoutStyles.textMuted}>Loading...</span> : null}
+            {loading ? <span className={layoutStyles.textMuted}>{`Loading${ELLIPSIS}`}</span> : null}
           </div>
         </Card>
 

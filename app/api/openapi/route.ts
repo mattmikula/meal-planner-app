@@ -2,6 +2,8 @@ import { readFile } from "node:fs/promises";
 import path from "node:path";
 import { NextResponse } from "next/server";
 
+import { jsonError, logApiError } from "@/lib/api/helpers";
+
 export async function GET() {
   try {
     const filePath = path.join(process.cwd(), "docs", "api", "openapi.yaml");
@@ -15,7 +17,7 @@ export async function GET() {
       }
     });
   } catch (error) {
-    const message = error instanceof Error ? error.message : "Unknown error";
-    return NextResponse.json({ error: `Unable to load OpenAPI spec: ${message}` }, { status: 500 });
+    logApiError("openapi GET", error);
+    return jsonError("Unable to load OpenAPI spec.", 500);
   }
 }
