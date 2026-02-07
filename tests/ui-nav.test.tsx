@@ -89,3 +89,22 @@ test("does not mark unrelated paths as active", () => {
     expect(link).not.toHaveClass(styles.linkActive);
   });
 });
+
+test("marks only the most specific household link active", () => {
+  mockUsePathname.mockReturnValue("/household/invite");
+  render(<AppNav />);
+
+  const householdLink = screen.getByRole("link", { name: "Household" });
+  const inviteMemberLink = screen.getByRole("link", { name: "Invite member" });
+
+  expect(householdLink).not.toHaveClass(styles.linkActive);
+  expect(inviteMemberLink).toHaveClass(styles.linkActive);
+});
+
+test("does not activate household for prefix lookalike routes", () => {
+  mockUsePathname.mockReturnValue("/household-invite");
+  render(<AppNav />);
+
+  const householdLink = screen.getByRole("link", { name: "Household" });
+  expect(householdLink).not.toHaveClass(styles.linkActive);
+});

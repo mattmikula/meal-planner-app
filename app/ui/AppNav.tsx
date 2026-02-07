@@ -32,7 +32,22 @@ const isActivePath = (pathname: string, href: string) => {
   if (href === "/") {
     return pathname === "/";
   }
-  return pathname.startsWith(href);
+  return pathname === href || pathname.startsWith(`${href}/`);
+};
+
+const findActiveHref = (pathname: string) => {
+  let activeHref: string | null = null;
+
+  NAV_ITEMS.forEach((item) => {
+    if (!isActivePath(pathname, item.href)) {
+      return;
+    }
+    if (!activeHref || item.href.length > activeHref.length) {
+      activeHref = item.href;
+    }
+  });
+
+  return activeHref;
 };
 
 function AccountMenu() {
@@ -138,6 +153,10 @@ function AccountMenu() {
 
 export default function AppNav() {
   const pathname = usePathname();
+  const activeHref = useMemo(
+    () => (pathname ? findActiveHref(pathname) : null),
+    [pathname]
+  );
   const [isMenuOpen, setIsMenuOpen] = useState(false);
   const [isMounted, setIsMounted] = useState(false);
   const [isDesktop, setIsDesktop] = useState(() => {
@@ -198,7 +217,7 @@ export default function AppNav() {
   const navList = (
     <ul className={`${styles.list} ${styles.navList}`} id={menuId}>
       {NAV_ITEMS.map((item) => {
-        const isActive = pathname ? isActivePath(pathname, item.href) : false;
+        const isActive = item.href === activeHref;
         return (
           <li key={item.href}>
             <Link
