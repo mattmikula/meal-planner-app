@@ -1,12 +1,13 @@
 "use client";
 
 import { useRouter } from "next/navigation";
-import { memo, useCallback, useMemo, useState, type FormEvent } from "react";
+import { memo, useCallback, useEffect, useMemo, useState, type FormEvent } from "react";
 
 import AppNav from "@/app/ui/AppNav";
 import Button from "@/app/ui/Button";
 import Card from "@/app/ui/Card";
 import PageLayout from "@/app/ui/PageLayout";
+import { SessionStatusMessage } from "@/app/ui/StatusMessages";
 import TextArea from "@/app/ui/TextArea";
 import formStyles from "@/app/ui/FormControls.module.css";
 import layoutStyles from "@/app/ui/Layout.module.css";
@@ -20,6 +21,7 @@ import { buildIngredientSuggestionRequest } from "@/lib/ingredients/client";
 type IngredientSuggestion = components["schemas"]["IngredientSuggestion"];
 
 enum IngredientStatusMessage {
+  SessionLoadFailed = "Unable to load your session. Try again.",
   SuggestionFailed = "Unable to suggest a meal.",
   AddedToGroceries = "Ingredient added to groceries.",
   AddToGroceriesFailed = "Unable to add ingredient to groceries."
@@ -66,6 +68,7 @@ export default function IngredientSuggestionsClient() {
   const [ingredientsInput, setIngredientsInput] = useState("");
   const [suggestion, setSuggestion] = useState<IngredientSuggestion | null>(null);
   const [status, setStatus] = useState<string | null>(null);
+  const [checkingSession, setCheckingSession] = useState(true);
   const [loading, setLoading] = useState(false);
   const [addingIngredient, setAddingIngredient] = useState<string | null>(null);
   const [addedIngredients, setAddedIngredients] = useState<string[]>([]);
@@ -74,6 +77,44 @@ export default function IngredientSuggestionsClient() {
     () => new Set(addedIngredients.map((ingredient) => ingredient.toLowerCase())),
     [addedIngredients]
   );
+
+  useEffect(() => {
+    let isMounted = true;
+
+    const checkSession = async () => {
+      let authorized = true;
+      try {
+        const { response } = await api.GET("/api/me");
+        if (!isMounted) {
+          return;
+        }
+
+        if (response?.status === 401) {
+          router.replace("/");
+          authorized = false;
+          return;
+        }
+
+        if (!response?.ok) {
+          setStatus(IngredientStatusMessage.SessionLoadFailed);
+        }
+      } catch {
+        if (isMounted) {
+          setStatus(IngredientStatusMessage.SessionLoadFailed);
+        }
+      } finally {
+        if (isMounted && authorized) {
+          setCheckingSession(false);
+        }
+      }
+    };
+
+    checkSession();
+
+    return () => {
+      isMounted = false;
+    };
+  }, [api, router]);
 
   const handleSubmit = useCallback(
     async (event: FormEvent<HTMLFormElement>) => {
@@ -169,6 +210,21 @@ export default function IngredientSuggestionsClient() {
     },
     [addingIngredient, api, router]
   );
+
+  if (checkingSession) {
+    return (
+      <PageLayout
+        title="Ingredients"
+        subtitle="Find meals from what you already have and add items to groceries."
+        size="wide"
+        nav={<AppNav />}
+      >
+        <Card>
+          <p>{SessionStatusMessage.Checking}</p>
+        </Card>
+      </PageLayout>
+    );
+  }
 
   return (
     <PageLayout

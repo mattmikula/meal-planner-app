@@ -7,6 +7,7 @@ import AppNav from "@/app/ui/AppNav";
 import Button from "@/app/ui/Button";
 import Card from "@/app/ui/Card";
 import PageLayout from "@/app/ui/PageLayout";
+import { SessionStatusMessage } from "@/app/ui/StatusMessages";
 import TextInput from "@/app/ui/TextInput";
 import formStyles from "@/app/ui/FormControls.module.css";
 import layoutStyles from "@/app/ui/Layout.module.css";
@@ -39,6 +40,7 @@ export default function InviteMemberClient() {
   const [status, setStatus] = useState<string | null>(null);
   const [inviteUrl, setInviteUrl] = useState<string | null>(null);
   const [sending, setSending] = useState(false);
+  const [checkingSession, setCheckingSession] = useState(true);
   const [households, setHouseholds] = useState<HouseholdSummary[]>([]);
   const [householdId, setHouseholdId] = useState("");
   const [loadingHouseholds, setLoadingHouseholds] = useState(true);
@@ -53,17 +55,17 @@ export default function InviteMemberClient() {
         const { data, response, error } = await api.GET("/api/households");
 
         if (!isMountedRef.current) {
-          return;
+          return false;
         }
 
         if (response?.status === 401) {
           router.replace("/");
-          return;
+          return false;
         }
 
         if (!response?.ok || !data) {
           setStatus(getApiErrorMessage(error) ?? InviteMemberStatusMessage.HouseholdsLoadFailed);
-          return;
+          return true;
         }
 
         const selected =
@@ -73,10 +75,12 @@ export default function InviteMemberClient() {
 
         setHouseholds(data.households);
         setHouseholdId(selected);
+        return true;
       } catch {
         if (isMountedRef.current) {
           setStatus(InviteMemberStatusMessage.HouseholdsLoadFailed);
         }
+        return true;
       } finally {
         if (isMountedRef.current) {
           setLoadingHouseholds(false);
@@ -84,7 +88,14 @@ export default function InviteMemberClient() {
       }
     };
 
-    loadHouseholds();
+    const loadInitialData = async () => {
+      const authorized = await loadHouseholds();
+      if (isMountedRef.current && authorized) {
+        setCheckingSession(false);
+      }
+    };
+
+    loadInitialData();
 
     return () => {
       isMountedRef.current = false;
@@ -157,6 +168,21 @@ export default function InviteMemberClient() {
       }
     }
   };
+
+  if (checkingSession) {
+    return (
+      <PageLayout
+        title="Invite a Household Member"
+        subtitle="Create a shareable link to add someone to your household."
+        size="narrow"
+        nav={<AppNav />}
+      >
+        <Card>
+          <p>{SessionStatusMessage.Checking}</p>
+        </Card>
+      </PageLayout>
+    );
+  }
 
   return (
     <PageLayout
