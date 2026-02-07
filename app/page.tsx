@@ -6,6 +6,7 @@ import AppNav from "@/app/ui/AppNav";
 import Button from "@/app/ui/Button";
 import Card from "@/app/ui/Card";
 import PageLayout from "@/app/ui/PageLayout";
+import { SessionStatusMessage } from "@/app/ui/StatusMessages";
 import TextInput from "@/app/ui/TextInput";
 import layoutStyles from "@/app/ui/Layout.module.css";
 import formStyles from "@/app/ui/FormControls.module.css";
@@ -115,13 +116,13 @@ export default function HomePage() {
     }
   };
 
-  const nav = !checkingSession && userEmail ? <AppNav /> : undefined;
+  const nav = checkingSession || Boolean(userEmail) ? <AppNav /> : undefined;
 
   if (checkingSession) {
     return (
       <PageLayout title="Meal Planner" size="narrow" nav={nav}>
         <Card>
-          <p>Loading your session…</p>
+          <p>{SessionStatusMessage.Checking}</p>
         </Card>
       </PageLayout>
     );

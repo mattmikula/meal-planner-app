@@ -7,6 +7,7 @@ import AppNav from "@/app/ui/AppNav";
 import Button from "@/app/ui/Button";
 import Card from "@/app/ui/Card";
 import PageLayout from "@/app/ui/PageLayout";
+import { SessionStatusMessage } from "@/app/ui/StatusMessages";
 import TextInput from "@/app/ui/TextInput";
 import formStyles from "@/app/ui/FormControls.module.css";
 import layoutStyles from "@/app/ui/Layout.module.css";
@@ -34,6 +35,7 @@ export default function HouseholdClient() {
   const api = useMemo(() => createApiClient(), []);
   const router = useRouter();
   const isMountedRef = useRef(true);
+  const [checkingSession, setCheckingSession] = useState(true);
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
   const [nameSaving, setNameSaving] = useState(false);
@@ -63,19 +65,19 @@ export default function HouseholdClient() {
       ]);
 
       if (!isMountedRef.current) {
-        return;
+        return false;
       }
 
       if (contextResult.response?.status === 401 || listResult.response?.status === 401) {
         router.replace("/");
-        return;
+        return false;
       }
 
       if (!listResult.response?.ok || !listResult.data) {
         setStatus(
           getApiErrorMessage(listResult.error) ?? HouseholdStatusMessage.LoadFailed
         );
-        return;
+        return true;
       }
 
       if (contextResult.response?.status === 404) {
@@ -97,10 +99,12 @@ export default function HouseholdClient() {
 
       setHouseholds(householdList);
       setSelectedId(selected);
+      return true;
     } catch {
       if (isMountedRef.current) {
         setStatus(HouseholdStatusMessage.LoadFailed);
       }
+      return true;
     } finally {
       if (isMountedRef.current) {
         setLoading(false);
@@ -110,7 +114,16 @@ export default function HouseholdClient() {
 
   useEffect(() => {
     isMountedRef.current = true;
-    loadHouseholds();
+
+    const loadInitialData = async () => {
+      const authorized = await loadHouseholds();
+      if (isMountedRef.current && authorized) {
+        setCheckingSession(false);
+      }
+    };
+
+    loadInitialData();
+
     return () => {
       isMountedRef.current = false;
     };
@@ -218,6 +231,20 @@ export default function HouseholdClient() {
       }
     }
   }, [api, canSaveName, currentId, nameInput, router]);
+
+  if (checkingSession) {
+    return (
+      <PageLayout
+        title="Household"
+        subtitle="Switch the household you are planning for."
+        nav={<AppNav />}
+      >
+        <Card>
+          <p>{SessionStatusMessage.Checking}</p>
+        </Card>
+      </PageLayout>
+    );
+  }
 
   return (
     <PageLayout
