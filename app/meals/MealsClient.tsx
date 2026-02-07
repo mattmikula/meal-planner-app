@@ -16,6 +16,7 @@ import AppNav from "@/app/ui/AppNav";
 import Button from "@/app/ui/Button";
 import Card from "@/app/ui/Card";
 import PageLayout from "@/app/ui/PageLayout";
+import { SessionStatusMessage } from "@/app/ui/StatusMessages";
 import TextArea from "@/app/ui/TextArea";
 import TextInput from "@/app/ui/TextInput";
 import formStyles from "@/app/ui/FormControls.module.css";
@@ -458,7 +459,7 @@ export default function MealsClient() {
     return (
       <PageLayout title="Meals" size="wide" nav={<AppNav />}>
         <Card>
-          <p>Checking your session…</p>
+          <p>{SessionStatusMessage.Checking}</p>
         </Card>
       </PageLayout>
     );

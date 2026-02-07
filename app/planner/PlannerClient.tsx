@@ -14,6 +14,7 @@ import AppNav from "@/app/ui/AppNav";
 import Button from "@/app/ui/Button";
 import Card from "@/app/ui/Card";
 import PageLayout from "@/app/ui/PageLayout";
+import { SessionStatusMessage } from "@/app/ui/StatusMessages";
 import layoutStyles from "@/app/ui/Layout.module.css";
 import styles from "@/app/planner/Planner.module.css";
 import PlannerDayCard from "@/app/planner/PlannerDayCard";
@@ -451,7 +452,7 @@ export default function PlannerClient() {
     return (
       <PageLayout title="Planner" subtitle={weekLabel} size="wide" nav={<AppNav />}>
         <Card>
-          <p>Loading planner{ELLIPSIS}</p>
+          <p>{SessionStatusMessage.Checking}</p>
         </Card>
       </PageLayout>
     );
