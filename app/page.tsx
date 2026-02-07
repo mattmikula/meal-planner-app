@@ -116,7 +116,7 @@ export default function HomePage() {
     }
   };
 
-  const nav = checkingSession || Boolean(userEmail) ? <AppNav /> : undefined;
+  const nav = !checkingSession && userEmail ? <AppNav /> : undefined;
 
   if (checkingSession) {
     return (
