@@ -32,42 +32,33 @@ const isActivePath = (pathname: string, href: string) => {
   if (href === "/") {
     return pathname === "/";
   }
-  return pathname.startsWith(href);
+  return pathname === href || pathname.startsWith(`${href}/`);
+};
+
+const findActiveHref = (pathname: string) => {
+  let activeHref: string | null = null;
+
+  NAV_ITEMS.forEach((item) => {
+    if (!isActivePath(pathname, item.href)) {
+      return;
+    }
+    if (!activeHref || item.href.length > activeHref.length) {
+      activeHref = item.href;
+    }
+  });
+
+  return activeHref;
 };
 
 function AccountMenu() {
   const api = useMemo(() => createApiClient(), []);
   const router = useRouter();
   const pathname = usePathname();
-  const [isAuthenticated, setIsAuthenticated] = useState<boolean | null>(null);
   const [isOpen, setIsOpen] = useState(false);
   const [status, setStatus] = useState<string | null>(null);
   const menuId = useId();
   const buttonRef = useRef<HTMLButtonElement>(null);
   const menuRef = useRef<HTMLDivElement>(null);
-
-  useEffect(() => {
-    let isMounted = true;
-
-    const checkAuth = async () => {
-      try {
-        const { response } = await api.GET("/api/me");
-        if (isMounted) {
-          setIsAuthenticated(Boolean(response?.ok));
-        }
-      } catch {
-        if (isMounted) {
-          setIsAuthenticated(false);
-        }
-      }
-    };
-
-    checkAuth();
-
-    return () => {
-      isMounted = false;
-    };
-  }, [api]);
 
   useEffect(() => {
     if (!isOpen) {
@@ -119,16 +110,12 @@ function AccountMenu() {
     setStatus(getApiErrorMessage(error) ?? AccountStatusMessage.SignOutFailed);
   };
 
-  if (!isAuthenticated) {
-    return null;
-  }
-
   return (
     <div className={styles.account}>
       <button
         type="button"
         className={`${styles.link} ${styles.accountButton}`}
-        aria-haspopup="menu"
+        aria-haspopup="true"
         aria-expanded={isOpen}
         aria-controls={menuId}
         onClick={() => setIsOpen((prev) => !prev)}
@@ -139,19 +126,21 @@ function AccountMenu() {
       <div
         id={menuId}
         className={styles.accountMenu}
-        role="menu"
-        aria-label="Account"
+        aria-label="Account actions"
         hidden={!isOpen}
         ref={menuRef}
       >
-        <button
-          type="button"
-          className={styles.accountItem}
-          role="menuitem"
-          onClick={handleLogout}
-        >
-          Sign Out
-        </button>
+        <ul className={styles.accountList}>
+          <li>
+            <button
+              type="button"
+              className={styles.accountItem}
+              onClick={handleLogout}
+            >
+              Sign Out
+            </button>
+          </li>
+        </ul>
         {status ? (
           <p className={styles.accountStatus} role="status" aria-live="polite">
             {status}
@@ -164,6 +153,10 @@ function AccountMenu() {
 
 export default function AppNav() {
   const pathname = usePathname();
+  const activeHref = useMemo(
+    () => (pathname ? findActiveHref(pathname) : null),
+    [pathname]
+  );
   const [isMenuOpen, setIsMenuOpen] = useState(false);
   const [isMounted, setIsMounted] = useState(false);
   const [isDesktop, setIsDesktop] = useState(() => {
@@ -224,7 +217,7 @@ export default function AppNav() {
   const navList = (
     <ul className={`${styles.list} ${styles.navList}`} id={menuId}>
       {NAV_ITEMS.map((item) => {
-        const isActive = pathname ? isActivePath(pathname, item.href) : false;
+        const isActive = item.href === activeHref;
         return (
           <li key={item.href}>
             <Link
@@ -281,9 +274,9 @@ export default function AppNav() {
             document.body
           )
         : null}
-      {isMounted && !isDesktop
+      {isMounted && !isDesktop && menuOpen
         ? createPortal(
-            <div className={styles.drawer} aria-hidden={!menuOpen} data-open={menuOpen}>
+            <div className={styles.drawer} data-open="true">
               {navList}
             </div>,
             document.body

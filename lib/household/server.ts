@@ -532,21 +532,7 @@ export async function setCurrentHouseholdForUser(
   return context;
 }
 
-const isValidInviteEmail = (email: string) => {
-  const [localPart, domain] = email.split("@");
-  if (!localPart || !domain) {
-    return false;
-  }
-  if (
-    !domain.includes(".") ||
-    domain.startsWith(".") ||
-    domain.endsWith(".") ||
-    domain.includes("..")
-  ) {
-    return false;
-  }
-  return true;
-};
+const INVITE_EMAIL_FORMAT_SCHEMA = z.string().email();
 
 const inviteEmailSchema = z
   .any()
@@ -573,7 +559,7 @@ const inviteEmailSchema = z
       });
       return;
     }
-    if (!isValidInviteEmail(trimmed.toLowerCase())) {
+    if (!INVITE_EMAIL_FORMAT_SCHEMA.safeParse(trimmed).success) {
       ctx.addIssue({
         code: z.ZodIssueCode.custom,
         message: "Invalid email format."
